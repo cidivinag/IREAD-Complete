@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <style>
+        .profile-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .profile-header {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .profile-item {
+            margin: 10px 0;
+        }
+
+        .profile-label {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .profile-value {
+            color: #4b5563;
+        }
+
+        .modules-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .module-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+    </style>
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-14">
+        <div class="profile-card">
+            <div class="profile-header">User Information</div>
+            <div class="profile-item">
+                <span class="profile-label">Name:</span>
+                <span class="profile-value">{{ user.first_name }} {{ user.last_name }}</span>
+            </div>
+            <div class="profile-item">
+                <span class="profile-label">Section:</span>
+                <span class="profile-value">{{ user.section.section }}</span>
+            </div>
+            <div class="profile-item">
+                <span class="profile-label">Accumulated Points:</span>
+                <span class="profile-value">{{ user.experience }} points</span>
+            </div>
+
+            <div class="profile-item">
+                <span class="profile-label">Modules Answered with Points:</span>
+                <ul class="modules-list">
+                    {% for module in user.completed_modules %}
+                        <li class="module-item">
+                            {{ module.module_title }} - {{ module.points_earned }} 
+                        </li>
+                    {% empty %}
+                        <li class="module-item">No modules completed yet.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+        <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+            <img class="mx-auto h-24 w-auto" src="https://firebasestorage.googleapis.com/v0/b/cecollabo-b85cd.appspot.com/o/aa1bd019-5fe5-48ff-b0b1-bc46e9501dff-removebg-preview%20(3).png?alt=media&token=74b8126c-d70f-412a-b687-6ea5abfc4287"
+                 alt="Your Company">
+            <h2 class="mt-10 text-center text-2xl font-bold leading-9 tracking-wide text-gray-900">
+                I-Read Admin Management System
+            </h2>
+        </div>
+        <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+
+            <div id="message" class="mb-2">
+
+            </div>
+            <form hx-post="{% url 'signin_services' %}" hx-target="#message" hx-swap="innerHTML" class="space-y-6"
+                  method="POST">
+                <div>
+                    <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Email address</label>
+                    <div class="mt-2">
+                        <input id="email" name="email" type="email" autocomplete="email" required
+                               class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
+                    <div class="mt-2 flex items-center">
+                        <input id="password" name="password" type="password" autocomplete="off" required
+                               class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 pr-10">
+                        <button type="button" id="toggle-password"
+                                class="absolute inset-y-0 right-0 flex items-center px-3">
+                            <svg id="eye-open" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                 stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-gray-500 mt-8">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                      d="M12 3.25C6.56 3.25 2.37 7.43 1.25 12c1.12 4.57 5.31 8.75 10.75 8.75 5.44 0 9.63-4.18 10.75-8.75-1.12-4.57-5.31-8.75-10.75-8.75zm0 13.5c-2.67 0-4.89-2.14-4.89-4.75S9.33 7.25 12 7.25s4.89 2.14 4.89 4.75-2.22 4.75-4.89 4.75z"/>
+                            </svg>
+                            <svg id="eye-close" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                 stroke-width="1.5" stroke="currentColor" class="hidden h-5 w-5 text-gray-500 mt-8">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                      d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"/>
+                            </svg>
+
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <button type="submit"
+                            class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                        Sign in
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const passwordInput = document.getElementById('password');
+            const toggleButton = document.getElementById('toggle-password');
+            const eyeIcon = toggleButton.querySelector('svg');
+
+            const eyeOpen = document.getElementById("eye-open")
+            const eyeClose = document.getElementById("eye-close")
+
+            toggleButton.addEventListener('click', () => {
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    eyeIcon.setAttribute('stroke', 'currentColor');
+                    eyeOpen.classList.add('hidden')
+                    eyeClose.classList.remove('hidden')
+                } else {
+                    passwordInput.type = 'password';
+                    eyeIcon.setAttribute('stroke', 'currentColor');
+                    eyeOpen.classList.remove('hidden')
+                    eyeClose.classList.add('hidden')
+                }
+            });
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "741826263904",
+    "project_id": "iread-migrated",
+    "storage_bucket": "iread-migrated.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:741826263904:android:e92f239ce5087f8e79fc05",
+        "android_client_info": {
+          "package_name": "com.example.i_read_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLzWT2GJ_kxpA_dXczC-0_fN1XNZblteo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

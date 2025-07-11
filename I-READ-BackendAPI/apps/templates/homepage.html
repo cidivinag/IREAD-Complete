@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <style>
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-name {
+            font-weight: 500;
+        }
+
+        .user-experience {
+            color: #4b5563;
+        }
+
+        .chart-container {
+            width: 100%;
+            max-width: 800px;
+            margin: auto;
+        }
+    </style>
+
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 bg-white rounded-lg shadow py-3 px-1.5 mt-14">
+        <div class="card">
+            <div class="card-header">LEADERBOARD</div>
+            <div class="card-content">
+                {% for user in leaderboard %}
+                    <div class="list-item">
+                        <a href="/profile/{{ user.id }}" class="user-name">{{ forloop.counter }}. {{ user.first_name }} {{ user.last_name }}</a>
+                        <span class="user-experience">{{ user.experience }} points</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card mt-8">
+            <div class="card-header">POINTS PER MODULE</div>
+            <div class="card-content">
+                <div class="chart-container">
+                    <canvas id="moduleChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('moduleChart').getContext('2d');
+        const moduleData = {{ module_points|safe }};
+        const titles = moduleData.map(item => item.title);
+        const points = moduleData.map(item => item.total_points || 0);
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: titles,
+                datasets: [{
+                    label: 'Total Points',
+                    data: points,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+{% endblock %}

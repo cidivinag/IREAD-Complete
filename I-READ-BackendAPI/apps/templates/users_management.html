@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <style>
+        .datatable-wrapper .datatable-bottom .datatable-info {
+            font-size: 12px;
+        }
+
+        .datatable-wrapper .datatable-input, .datatable-wrapper .datatable-search .datatable-input {
+            font-size: 12px;
+            padding: 5px 8px;
+        }
+
+        .datatable-wrapper .datatable-top .datatable-dropdown .datatable-selector {
+            font-size: 12px;
+            padding: 5px 8px;
+        }
+
+        .datatable-wrapper .datatable-top .datatable-dropdown {
+            font-size: 12px;
+        }
+
+        /* Spread out table columns */
+        #pagination-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        #pagination-table th,
+        #pagination-table td {
+            text-align: center; /* Center-align all content */
+            padding: 8px;
+        }
+
+        /* Adjust column widths */
+        #pagination-table th:nth-child(1),
+        #pagination-table td:nth-child(1) { /* # */
+            width: 5%;
+        }
+
+        #pagination-table th:nth-child(2),
+        #pagination-table td:nth-child(2) { /* Full Name */
+            width: 20%;
+        }
+
+        #pagination-table th:nth-child(3),
+        #pagination-table td:nth-child(3) { /* Email Address */
+            width: 25%;
+        }
+
+        #pagination-table th:nth-child(4),
+        #pagination-table td:nth-child(4) { /* Strand */
+            width: 15%;
+        }
+
+        #pagination-table th:nth-child(5),
+        #pagination-table td:nth-child(5) { /* Section */
+            width: 15%;
+        }
+
+        /* Style for filter selects (same as module_builder.html) */
+        #pagination-table th select {
+            width: 90%;
+            padding: 4px;
+            font-size: 12px;
+            margin: 0 auto;
+            display: block;
+            box-sizing: border-box;
+        }
+
+        /* Header styling */
+        #pagination-table th {
+            text-transform: uppercase;
+            font-weight: 600;
+            color: #111827; /* text-gray-900 */
+        }
+    </style>
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 bg-white rounded-lg shadow py-3 px-1.5 mt-14">
+        <div class="border-b border-gray-200 bg-white px-4 py-5 sm:px-6 mb-10">
+            <div class="-ml-4 -mt-2 flex flex-wrap items-center justify-between sm:flex-nowrap">
+                <div class="ml-4 mt-2">
+                    <h3 class="text-base font-semibold text-gray-900">User Management</h3>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <form id="filter-form" method="GET">
+                <table id="pagination-table">
+                    <thead>
+                        <tr>
+                            <th class="text-xs font-semibold">#</th>
+                            <th class="text-xs font-semibold">Full Name</th>
+                            <th class="text-xs font-semibold">Email Address</th>
+                            <th class="text-xs font-semibold">
+                                Strand
+                                <select name="strand" onchange="this.form.submit()">
+                                    <option value="">All Strands</option>
+                                    {% for strand in strands %}
+                                        <option value="{{ strand }}" {% if request.GET.strand == strand %}selected{% endif %}>{{ strand }}</option>
+                                    {% endfor %}
+                                </select>
+                            </th>
+                            <th class="text-xs font-semibold">
+                                Section
+                                <select name="section" onchange="this.form.submit()">
+                                    <option value="">All Sections</option>
+                                    {% for section in sections %}
+                                        <option value="{{ section }}" {% if request.GET.section == section %}selected{% endif %}>{{ section }}</option>
+                                    {% endfor %}
+                                </select>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                            <tr>
+                                <td class="text-xs font-medium text-gray-900 whitespace-nowrap">{{ forloop.counter }}</td>
+                                <td class="text-xs">{{ student.user.last_name }}, {{ student.user.first_name }}</td>
+                                <td class="text-xs">{{ student.user.email }}</td>
+                                <td class="text-xs">{{ student.strand }}</td>
+                                <td class="text-xs">{{ student.section.section }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-xs text-center">
+                                    {% if request.GET.strand or request.GET.section %}
+                                        No students found matching your filters.
+                                    {% else %}
+                                        No students found.
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest" type="text/javascript"></script>
+    <script>
+        if (document.getElementById("pagination-table") && typeof simpleDatatables.DataTable !== 'undefined') {
+            const dataTable = new simpleDatatables.DataTable("#pagination-table", {
+                paging: true,
+                perPage: 10,
+                perPageSelect: [10, 15, 20, 25],
+                searchable: true,
+                sortable: false
+            });
+        }
+    </script>
+{% endblock %}

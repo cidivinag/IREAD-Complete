@@ -1,0 +1,118 @@
+<style>
+    .spinner {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: radial-gradient(farthest-side, #ffffff 94%, #0000) top/3.8px 3.8px no-repeat,
+        conic-gradient(#0000 30%, #ffffff);
+        -webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 3.8px), #000 0);
+        animation: spinner-c7wet2 1s infinite linear;
+    }
+
+    @keyframes spinner-c7wet2 {
+        100% {
+            transform: rotate(1turn);
+        }
+    }
+</style>
+
+
+<div class="mt-8 flow-root mx-5 my-5">
+    <div class="overflow-x-auto overflow-y-auto h-96">
+        <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+            <table class="min-w-full divide-y divide-gray-300 table-fixed">
+                <thead class="sticky top-0 bg-white z-10">
+                <tr class="divide-x divide-gray-200">
+                    <th scope="col"
+                        class="sticky top-0 py-3.5 pl-4 pr-4 text-left text-sm font-semibold text-gray-900 sm:pl-0 bg-white">
+                        #
+                    </th>
+                    <th scope="col"
+                        class="sticky top-0 px-4 py-3.5 text-left text-xs font-semibold text-gray-900 bg-white">Last
+                        Name
+                    </th>
+                    <th scope="col"
+                        class="sticky top-0 px-4 py-3.5 text-left text-xs font-semibold text-gray-900 bg-white">First
+                        Name
+                    </th>
+                    <th scope="col"
+                        class="sticky top-0 px-4 py-3.5 text-left text-xs font-semibold text-gray-900 bg-white">Middle
+                        Name
+                    </th>
+                    <th scope="col"
+                        class="sticky top-0 px-4 py-3.5 text-left text-xs font-semibold text-gray-900 bg-white">Email
+                        Address
+                    </th>
+                    <th scope="col"
+                        class="sticky top-0 px-4 py-3.5 text-left text-xs font-semibold text-gray-900 bg-white">Section
+                    </th>
+                    <th scope="col"
+                        class="sticky top-0 px-4 py-3.5 text-left text-xs font-semibold text-gray-900 bg-white">Strand
+                    </th>
+                    <th scope="col"
+                        class="sticky top-0 px-4 py-3.5 text-left text-xs font-semibold text-gray-900 bg-white">Birthday
+                    </th>
+                    <th scope="col"
+                        class="sticky top-0 px-4 py-3.5 text-left text-xs font-semibold text-gray-900 bg-white">Address
+                    </th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white">
+                {% for student in data %}
+                    <tr class="divide-x divide-gray-200">
+                        <td class="py-3 pl-3 pr-3 text-xs font-medium text-gray-900 sm:pl-0">{{ forloop.counter }}</td>
+                        <td class="p-3 text-xs text-gray-500">{{ student.last_name }}</td>
+                        <td class="p-3 text-xs text-gray-500">{{ student.first_name }}</td>
+                        <td class="p-3 text-xs text-gray-500">{{ student.middle_name }}</td>
+                        <td class="p-3 text-xs text-gray-500">{{ student.email }}</td>
+                        <td class="p-3 text-xs text-gray-500 whitespace-nowrap">{{ student.section }}</td>
+                        <td class="p-3 text-xs text-gray-500">{{ student.strand }}</td>
+                        <td class="p-3 text-xs text-gray-500 whitespace-nowrap">{{ student.birthday }}</td>
+                        <td class="p-3 text-xs text-gray-500">{{ student.address }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal footer -->
+    <div class="flex justify-end items-center p-4 md:p-5 border-t border-gray-200 rounded-b">
+        <button onclick="showLoader()" 
+                type="button" 
+                hx-get="{% url 'save_uploaded_class_lists' filename=excel_file_name section=section %}"
+                hx-target="#snackbar"
+                class="flex gap-x-2 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-xs px-3 py-1.5 text-center">
+            <div class="spinner hidden"></div>
+            Upload
+        </button>
+        <button data-modal-hide="default-modal" type="button"
+                class="ms-3 text-xs px-3 py-1.5  font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100">
+            Cancel
+        </button>
+    </div>
+</div>
+
+<script>
+    function showLoader() {
+        // Select the spinner inside the button
+        const spinner = document.querySelector(".spinner");
+
+        if (spinner) { // Check if spinner exists
+            spinner.classList.remove("hidden"); // Show the spinner
+        } else {
+            console.warn("Spinner element not found.");
+        }
+    }
+
+    function hideLoader() {
+        // Select the spinner inside the button
+        const spinner = document.querySelector(".spinner");
+
+        if (spinner) { // Check if spinner exists
+            spinner.classList.add("hidden"); // Hide the spinner
+        } else {
+            console.warn("Spinner element not found.");
+        }
+    }
+</script>
