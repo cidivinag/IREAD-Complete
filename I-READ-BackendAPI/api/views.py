@@ -24,6 +24,38 @@ import tempfile
 from pydub import AudioSegment
 from fuzzywuzzy import fuzz
 
+# Firebase Admin SDK imports
+import firebase_admin
+from firebase_admin import auth as firebase_auth
+from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.views import APIView
+from rest_framework.parsers import JSONParser
+
+# Ensure Firebase app is initialized
+if not firebase_admin._apps:
+    firebase_admin.initialize_app()
+
+@api_view(['POST'])
+def firebase_token_exchange(request):
+    data = request.data
+    firebase_token = data.get('firebase_token')
+    if not firebase_token:
+        return Response({'error': 'firebase_token is required'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        decoded = firebase_auth.verify_id_token(firebase_token)
+        uid = decoded['uid']
+        email = decoded.get('email', f'{uid}@firebase.local')
+        User = get_user_model()
+        user, created = User.objects.get_or_create(username=uid, defaults={'email': email})
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh)
+        })
+    except Exception as e:
+        return Response({'error': 'Invalid Firebase token', 'details': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

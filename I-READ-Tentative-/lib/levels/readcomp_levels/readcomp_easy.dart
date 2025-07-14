@@ -5,10 +5,8 @@ import 'package:i_read_app/services/api.dart';
 
 import '../../pages/modulecontent_page.dart';
 
-// tests
-
 class ReadCompEasy extends StatefulWidget {
-  const ReadCompEasy({super.key});sfasf
+  const ReadCompEasy({super.key});
 
   @override
   _ReadCompEasyState createState() => _ReadCompEasyState();

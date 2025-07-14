@@ -81,6 +81,7 @@ class ApiService {
         return userProfile;
       } else {
         log('Failed to retrieve profile. Status code: ${response.statusCode}');
+        log('Response body: ${response.body}');
         throw 'Failed to retrieve profile. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -109,6 +110,9 @@ class ApiService {
         return modules; // Return the list of modules
       } else {
         log('Failed to retrieve modules. Status code: ${response.statusCode}');
+        log('Response body: ${response.body}');
+        print('Failed to retrieve modules. Status code: ${response.statusCode}');
+        print('Response body: ${response.body}');
         throw 'Failed to retrieve modules. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -138,6 +142,7 @@ class ApiService {
         return questions; // Return the list of modules
       } else {
         log('Failed to retrieve questions. Status code: ${response.statusCode}');
+        log('Response body: ${response.body}');
         throw 'Failed to retrieve questions. Status code: ${response.statusCode}';
       }
     } catch (e) {
