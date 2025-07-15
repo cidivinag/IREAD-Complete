@@ -1,5 +1,4 @@
 import uuid
-from email._header_value_parser import Section
 
 from autoslug import AutoSlugField
 from django.contrib.auth.models import (

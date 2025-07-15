@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:i_read_app/models/module.dart';
 import 'package:i_read_app/models/user.dart';
-// import 'package:i_read_app/services/firestore_module_service.dart';
-// import 'package:i_read_app/services/firestore_user_profile_service.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
-import 'package:i_read_app/services/storage.dart';
-import 'package:i_read_app/services/api.dart';
+import 'package:i_read_app/services/django_user_profile_service.dart';
 
 class ProfileMenu extends StatefulWidget {
   const ProfileMenu({super.key});
@@ -16,21 +13,15 @@ class ProfileMenu extends StatefulWidget {
 }
 
 class _ProfileMenuState extends State<ProfileMenu> {
-  int? xp = 0;
-  int? completedModules = 0;
-  int? totalModules = 0;
-  // int xp = 0;
-  // int completedModules = 0;
-  // int totalModules = 0;
+  int xp = 0;
+  int completedModules = 0;
+  int totalModules = 0;
   String fullName = '';
   String strand = '';
   String schoolName = 'Tanauan School of Fisheries';
   String rank = 'Unranked';
-  List<CompletedModule> completedModuelsList = [];
-  ApiService apiService = ApiService();
-  // final FirestoreModuleService firestoreModuleService = FirestoreModuleService();
-  // final FirestoreUserProfileService firestoreUserProfileService = FirestoreUserProfileService();
-  StorageService storageService = StorageService();
+  List<CompletedModule> completedModulesList = [];
+  final djangoUserProfileService = DjangoUserProfileService();
 
   @override
   void initState() {
@@ -39,31 +30,19 @@ class _ProfileMenuState extends State<ProfileMenu> {
   }
 
   Future<void> fetchUserData() async {
-    UserProfile? userProfile = await apiService.getProfile();
-    List<Module> moduleList = await apiService.getModules();
-    // String? userId = FirebaseAuth.instance.currentUser?.uid;
-    // if (userId == null) {
-    //   setState(() {
-    //     fullName = '';
-    //     xp = 0;
-    //     completedModules = 0;
-    //     strand = '';
-    //     completedModuelsList = [];
-    //     rank = 'Unranked';
-    //     totalModules = 0;
-    //   });
-    //   return;
-    // }
-    // UserProfile? userProfile = await firestoreUserProfileService.getUserProfile(userId);
-    // List<Module> moduleList = await firestoreModuleService.getModules();
+    UserProfile? userProfile =
+        await djangoUserProfileService.fetchUserProfile();
+
+    if (userProfile == null) return;
+
     setState(() {
-      fullName = '${userProfile?.firstName} ${userProfile?.lastName}';
-      xp = userProfile?.experience;
-      completedModules = userProfile?.completedModules.length;
-      strand = userProfile?.section ?? '';
-      completedModuelsList = userProfile?.completedModules ?? [];
-      rank = userProfile?.rank.toString() ?? '';
-      totalModules = moduleList.length;
+      fullName = '${userProfile.firstName} ${userProfile.lastName}';
+      xp = userProfile.experience;
+      completedModules = userProfile.completedModules.length;
+      strand = userProfile.section;
+      completedModulesList = userProfile.completedModules;
+      rank = userProfile.rank.toString();
+      // totalModules can be updated later if needed
     });
   }
 
@@ -79,7 +58,7 @@ class _ProfileMenuState extends State<ProfileMenu> {
       },
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: const Color(0xFFF5E8C7), // Manila paper background
+          backgroundColor: const Color(0xFFF5E8C7),
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Color(0xFF8B4513)),
@@ -97,7 +76,7 @@ class _ProfileMenuState extends State<ProfileMenu> {
           ),
         ),
         body: Container(
-          color: const Color(0xFFF5E8C7), // Manila paper background
+          color: const Color(0xFFF5E8C7),
           padding: EdgeInsets.symmetric(
               horizontal: width * 0.05, vertical: height * 0.02),
           child: Column(
@@ -172,7 +151,7 @@ class _ProfileMenuState extends State<ProfileMenu> {
               _buildProgressCard(
                 'Modules Completed',
                 '$completedModules/$totalModules',
-                completedModules! / (totalModules! > 0 ? totalModules! : 1),
+                completedModules / (totalModules > 0 ? totalModules : 1),
               ),
               const SizedBox(height: 20),
               Center(
@@ -188,13 +167,12 @@ class _ProfileMenuState extends State<ProfileMenu> {
               const SizedBox(height: 10),
               Expanded(
                 child: ListView.builder(
-                  itemCount: completedModuelsList?.length ?? 0,
+                  itemCount: completedModulesList.length,
                   itemBuilder: (context, index) {
-                    CompletedModule? currentModule =
-                        completedModuelsList?[index];
+                    CompletedModule currentModule = completedModulesList[index];
                     return _buildStatCard(
-                      currentModule?.moduleTitle ?? '',
-                      currentModule?.pointsEarned.toString() ?? '',
+                      currentModule.moduleTitle,
+                      currentModule.pointsEarned.toString(),
                     );
                   },
                 ),
@@ -208,7 +186,7 @@ class _ProfileMenuState extends State<ProfileMenu> {
 
   Widget _buildStatCard(String title, String value) {
     return Card(
-      color: const Color.fromARGB(255, 249, 222, 194), // Lighter manila shade
+      color: const Color.fromARGB(255, 249, 222, 194),
       margin: const EdgeInsets.all(8.0),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -237,7 +215,7 @@ class _ProfileMenuState extends State<ProfileMenu> {
 
   Widget _buildProgressCard(String title, String value, double progress) {
     return Card(
-      color: const Color.fromARGB(255, 249, 222, 194), // Lighter manila shade
+      color: const Color.fromARGB(255, 249, 222, 194),
       margin: const EdgeInsets.all(8.0),
       child: Padding(
         padding: const EdgeInsets.all(16.0),

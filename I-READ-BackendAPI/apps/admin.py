@@ -4,7 +4,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.urls import reverse
 from django.http import HttpResponseRedirect
 
-from apps.models import Students, Users, Teachers, Modules, Question, User_Module_Answer
+from apps.models import Students, Users, Teachers, Modules, Question, User_Module_Answer, Sections
 
 
 admin.site.register(Students)
@@ -70,3 +70,9 @@ class UserModuleAnswerAdmin(admin.ModelAdmin):
         if obj: # editing an existing object
             return ('user', 'question')
         return ()
+    
+@admin.register(Sections)
+class SectionsAdmin(admin.ModelAdmin):
+    list_display = ('section', 'created_by', 'created_at')  # Adjust as needed
+    search_fields = ('section',)
+    list_filter = ('created_by',)

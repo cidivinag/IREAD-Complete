@@ -28,15 +28,10 @@ class ApiService {
   Future<AccessToken?> postGenerateToken(String email, String password) async {
     try {
       // Request body
-      Map<String, String> requestBody = {
-        "email": email,
-        "password": password,
-      };
+      Map<String, String> requestBody = {"email": email, "password": password};
 
       // Request body
-      Map<String, String> requestHeader = {
-        "Content-Type": 'application/json',
-      };
+      Map<String, String> requestHeader = {"Content-Type": 'application/json'};
 
       var url = Uri.parse('${Constants.baseUrl}/api/token');
       var response = await http
@@ -55,7 +50,9 @@ class ApiService {
 
         return accessToken;
       } else {
-        log('Failed to retrieve access token. Status code: ${response.statusCode}');
+        log(
+          'Failed to retrieve access token. Status code: ${response.statusCode}',
+        );
         throw 'Failed to retrieve access token. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -81,6 +78,7 @@ class ApiService {
         return userProfile;
       } else {
         log('Failed to retrieve profile. Status code: ${response.statusCode}');
+        log('Response body: ${response.body}');
         throw 'Failed to retrieve profile. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -109,6 +107,11 @@ class ApiService {
         return modules; // Return the list of modules
       } else {
         log('Failed to retrieve modules. Status code: ${response.statusCode}');
+        log('Response body: ${response.body}');
+        print(
+          'Failed to retrieve modules. Status code: ${response.statusCode}',
+        );
+        print('Response body: ${response.body}');
         throw 'Failed to retrieve modules. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -125,8 +128,9 @@ class ApiService {
         "Authorization": 'Bearer $idToken',
       };
 
-      var url =
-          Uri.parse('${Constants.baseUrl}/api/modules/$moduleId/questions');
+      var url = Uri.parse(
+        '${Constants.baseUrl}/api/modules/$moduleId/questions',
+      );
       var response = await http.get(url, headers: requestHeader);
 
       if (response.statusCode == 200) {
@@ -137,7 +141,10 @@ class ApiService {
             .toList(); // Mapping each item in the list to a Module
         return questions; // Return the list of modules
       } else {
-        log('Failed to retrieve questions. Status code: ${response.statusCode}');
+        log(
+          'Failed to retrieve questions. Status code: ${response.statusCode}',
+        );
+        log('Response body: ${response.body}');
         throw 'Failed to retrieve questions. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -161,7 +168,9 @@ class ApiService {
         final data = jsonDecode(response.body);
         return data['answer'];
       } else {
-        log('Failed to retrieve questions. Status code: ${response.statusCode}');
+        log(
+          'Failed to retrieve questions. Status code: ${response.statusCode}',
+        );
         throw 'Failed to retrieve questions. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -181,12 +190,12 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> postSubmitModuleAnswer(
-      String moduleId, List<Answer> answers) async {
+    String moduleId,
+    List<Answer> answers,
+  ) async {
     try {
       // Request body
-      Map<String, List<Answer>> requestBody = {
-        "answers": answers,
-      };
+      Map<String, List<Answer>> requestBody = {"answers": answers};
 
       String? idToken = await _getFirebaseIdToken();
       Map<String, String> requestHeader = {
@@ -195,14 +204,19 @@ class ApiService {
       };
 
       var url = Uri.parse('${Constants.baseUrl}/api/modules/$moduleId/answer');
-      var response = await http.post(url,
-          headers: requestHeader, body: jsonEncode(requestBody));
+      var response = await http.post(
+        url,
+        headers: requestHeader,
+        body: jsonEncode(requestBody),
+      );
       print(jsonDecode(response.body));
       if (response.statusCode == 200) {
         Map<String, dynamic> data = jsonDecode(response.body);
         return data;
       } else {
-        log('Failed to submit module answer. Status code: ${response.statusCode}');
+        log(
+          'Failed to submit module answer. Status code: ${response.statusCode}',
+        );
         throw 'Failed to submit module answer. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -212,7 +226,10 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> postAssessPronunciation(
-      String filePath, String referenceText, questionId) async {
+    String filePath,
+    String referenceText,
+    questionId,
+  ) async {
     try {
       String? idToken = await _getFirebaseIdToken();
       Map<String, String> requestHeader = {
@@ -228,10 +245,7 @@ class ApiService {
       request.headers.addAll(requestHeader);
 
       request.files.add(
-        await http.MultipartFile.fromPath(
-          'audio_file',
-          filePath,
-        ),
+        await http.MultipartFile.fromPath('audio_file', filePath),
       );
 
       request.fields['reference_text'] = referenceText;

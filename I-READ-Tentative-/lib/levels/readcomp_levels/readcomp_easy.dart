@@ -5,10 +5,8 @@ import 'package:i_read_app/services/api.dart';
 
 import '../../pages/modulecontent_page.dart';
 
-// tests
-
 class ReadCompEasy extends StatefulWidget {
-  const ReadCompEasy({super.key});sfasf
+  const ReadCompEasy({super.key});
 
   @override
   _ReadCompEasyState createState() => _ReadCompEasyState();
@@ -27,9 +25,11 @@ class _ReadCompEasyState extends State<ReadCompEasy> {
   Future<List<Module>> _fetchEasyModules() async {
     List<Module> modules = await apiService.getModules();
     return modules
-        .where((module) =>
-            module.difficulty == 'Easy' &&
-            module.category == 'Reading Comprehension')
+        .where(
+          (module) =>
+              module.difficulty == 'Easy' &&
+              module.category == 'Reading Comprehension',
+        )
         .toList();
   }
 
@@ -39,8 +39,10 @@ class _ReadCompEasyState extends State<ReadCompEasy> {
 
     return WillPopScope(
       onWillPop: () async {
-        Navigator.pushNamed(context,
-            '/reading_comprehension_levels'); // Navigate back to ReadingComprehensionLevels
+        Navigator.pushNamed(
+          context,
+          '/reading_comprehension_levels',
+        ); // Navigate back to ReadingComprehensionLevels
         return false; // Prevent default back behavior
       },
       child: Scaffold(
@@ -48,8 +50,10 @@ class _ReadCompEasyState extends State<ReadCompEasy> {
           backgroundColor: const Color(0xFFF5E8C7), // Manila paper
           elevation: 0, // Flat look
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back,
-                color: Color(0xFF8B4513)), // Brown back arrow
+            icon: const Icon(
+              Icons.arrow_back,
+              color: Color(0xFF8B4513),
+            ), // Brown back arrow
             onPressed: () {
               Navigator.pushNamed(context, '/reading_comprehension_levels');
             },
