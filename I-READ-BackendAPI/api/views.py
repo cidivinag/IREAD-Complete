@@ -1,212 +1,176 @@
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from apps.models import Modules, Question, User_Module_Answer, Answer, User_Word_Pronunciation_Answer, UserCompletedModules, Users, ModuleMaterials
+from rest_framework.decorators import api_view, permission_classes
+from apps.models import Modules, Question, User_Module_Answer, Answer, User_Word_Pronunciation_Answer, UserCompletedModules, Users, ModuleMaterials, UserExperience
 from apps.utils import are_texts_similar
 from .serializers import ModulesSerializer, QuestionSerializer, UserSerializer, DynamicQuestionSerializer
-import json
 from django.shortcuts import get_object_or_404
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
 from rest_framework import status
-from django.shortcuts import get_object_or_404
-from apps.models import Modules, Question, UserExperience
-from api.services.module_service import ModuleService
-from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum, F  # Add this import
+from django.db.models import Sum, F
 from django.conf import settings
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
 import azure.cognitiveservices.speech as speechsdk
 import os
 import tempfile
 from pydub import AudioSegment
 from fuzzywuzzy import fuzz
+from django.contrib.auth import authenticate, get_user_model
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import IsAuthenticated
 
 # Firebase Admin SDK imports
-import firebase_admin
-from firebase_admin import auth as firebase_auth
-from django.contrib.auth import get_user_model
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.views import APIView
-from rest_framework.parsers import JSONParser
+# import firebase_admin
+# from firebase_admin import auth as firebase_auth
 
 # Ensure Firebase app is initialized
-if not firebase_admin._apps:
-    firebase_admin.initialize_app()
+# if not firebase_admin._apps:
+#     firebase_admin.initialize_app()
 
+# @api_view(['POST'])
+# def firebase_token_exchange(request):
+#     data = request.data
+#     firebase_token = data.get('firebase_token')
+#     if not firebase_token:
+#         return Response({'error': 'firebase_token is required'}, status=status.HTTP_400_BAD_REQUEST)
+#     try:
+#         decoded = firebase_auth.verify_id_token(firebase_token)
+#         uid = decoded['uid']
+#         email = decoded.get('email', f'{uid}@firebase.local')
+#         User = get_user_model()
+#         user, created = User.objects.get_or_create(username=uid, defaults={'email': email})
+#         refresh = RefreshToken.for_user(user)
+#         return Response({
+#             'access': str(refresh.access_token),
+#             'refresh': str(refresh)
+#         })
+#     except Exception as e:
+#         return Response({'error': 'Invalid Firebase token', 'details': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+# JWT login endpoint for non-Firebase users
 @api_view(['POST'])
-def firebase_token_exchange(request):
-    data = request.data
-    firebase_token = data.get('firebase_token')
-    if not firebase_token:
-        return Response({'error': 'firebase_token is required'}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        decoded = firebase_auth.verify_id_token(firebase_token)
-        uid = decoded['uid']
-        email = decoded.get('email', f'{uid}@firebase.local')
-        User = get_user_model()
-        user, created = User.objects.get_or_create(username=uid, defaults={'email': email})
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh)
-        })
-    except Exception as e:
-        return Response({'error': 'Invalid Firebase token', 'details': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+def jwt_login(request):
+    email = request.data.get('email')
+    password = request.data.get('password')
+    if not email or not password:
+        return Response({'error': 'Email and password required'}, status=status.HTTP_400_BAD_REQUEST)
 
+    user = authenticate(username=email, password=password)
+    if user is None:
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    refresh = RefreshToken.for_user(user)
+    return Response({
+        'access': str(refresh.access_token),
+        'refresh': str(refresh)
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_profile(request):
-  user = request.user
-  user_experience = UserExperience.objects.get_or_create(user=user)[0]
-
-  # Rank users based on total points
-  leaderboard = UserExperience.objects.annotate(
-      annotated_total_points=F('total_points')
-  ).order_by('-annotated_total_points')
-
-  # Get the rank by finding the position of the current user's total points
-  rank = next((index + 1 for index, exp in enumerate(leaderboard) if exp.user == user), None)
-  
-  user_serializer = UserSerializer(user, many = False)
-  user_profile_data = user_serializer.data
-  user_profile_data['rank'] = rank if rank else "Unranked"
-  total_experience = 0
-  # Get the list of completed modules and points earned in each
-  completed_modules = UserCompletedModules.objects.filter(user=user)
-  completed_modules_data = []
-  
-  for completed in completed_modules:
-      module = completed.module
-      if module.category == 'Word Pronunciation':
-          # Calculate the total points for Word Pronunciation module
-          total_module_points = User_Word_Pronunciation_Answer.objects.filter(
-              user=user, question__module=module
-          ).aggregate(total_points=Sum('points'))['total_points'] or 0
-          total_experience += total_module_points
-      elif module.category == 'Sentence Composition':
-          # Calculate the total points for Sentence Composition module
-          total_module_points = 0
-          user_answers = User_Module_Answer.objects.filter(user=user, question__module=module)
-          for user_answer in user_answers:
-              correct_answers = Answer.objects.filter(question=user_answer.question)
-              for correct_answer in correct_answers:
-                  if are_texts_similar(correct_answer.text, user_answer.text):
-                      total_module_points += correct_answer.points
-                      total_experience += correct_answer.points
-      else:
-          # Calculate the total points for other modules
-          total_module_points = User_Module_Answer.objects.filter(
-              user=user, question__module=module
-          ).filter(
-              question__answer__text=F('text')  # Correct answers matching user's answer
-          ).aggregate(total_points=Sum('question__answer__points'))['total_points'] or 0
-          total_experience += total_module_points
-      completed_modules_data.append({
-          'module_title': module.title,
-          'points_earned': total_module_points
-      })
-
-
-  user_profile_data['completed_modules'] = completed_modules_data
-  user_profile_data['experience'] = total_experience
-  return Response(user_profile_data)
+    user = request.user
+    user_experience = UserExperience.objects.get_or_create(user=user)[0]
+    leaderboard = UserExperience.objects.annotate(annotated_total_points=F('total_points')).order_by('-annotated_total_points')
+    rank = next((index + 1 for index, exp in enumerate(leaderboard) if exp.user == user), None)
+    user_serializer = UserSerializer(user, many=False)
+    user_profile_data = user_serializer.data
+    user_profile_data['rank'] = rank if rank else "Unranked"
+    total_experience = 0
+    completed_modules = UserCompletedModules.objects.filter(user=user)
+    completed_modules_data = []
+    for completed in completed_modules:
+        module = completed.module
+        if module.category == 'Word Pronunciation':
+            total_module_points = User_Word_Pronunciation_Answer.objects.filter(user=user, question__module=module).aggregate(total_points=Sum('points'))['total_points'] or 0
+            total_experience += total_module_points
+        elif module.category == 'Sentence Composition':
+            total_module_points = 0
+            user_answers = User_Module_Answer.objects.filter(user=user, question__module=module)
+            for user_answer in user_answers:
+                correct_answers = Answer.objects.filter(question=user_answer.question)
+                for correct_answer in correct_answers:
+                    if are_texts_similar(correct_answer.text, user_answer.text):
+                        total_module_points += correct_answer.points
+                        total_experience += correct_answer.points
+        else:
+            total_module_points = User_Module_Answer.objects.filter(user=user, question__module=module).filter(question__answer__text=F('text')).aggregate(total_points=Sum('question__answer__points'))['total_points'] or 0
+            total_experience += total_module_points
+        completed_modules_data.append({
+            'module_title': module.title,
+            'points_earned': total_module_points
+        })
+    user_profile_data['completed_modules'] = completed_modules_data
+    user_profile_data['experience'] = total_experience
+    return Response(user_profile_data)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_leaderboard(request):
-  # Get the top 10 users sorted by total experience points
-  leaderboard = UserExperience.objects.annotate(
-      annotated_total_points=F('total_points')  # Rename annotation
-  ).order_by('-annotated_total_points')[:10]  # Use the new annotated field name
-
-  leaderboard_data = []
-  
-  for user_experience in leaderboard:
-    user = user_experience.user
-    user_data = UserSerializer(user).data
-    user_data['experience'] = user_experience.total_points
-    leaderboard_data.append(user_data)
-
-  return Response({'leaderboard': leaderboard_data})
+    leaderboard = UserExperience.objects.annotate(annotated_total_points=F('total_points')).order_by('-annotated_total_points')[:10]
+    leaderboard_data = []
+    for user_experience in leaderboard:
+        user = user_experience.user
+        user_data = UserSerializer(user).data
+        user_data['experience'] = user_experience.total_points
+        leaderboard_data.append(user_data)
+    return Response({'leaderboard': leaderboard_data})
 
 @api_view(['GET'])
 def get_modules(request):
-  modules = Modules.objects.prefetch_related('module_materials').all()
-  serializer = ModulesSerializer(modules, many = True, context={'request': request})
-  return Response(serializer.data)
+    modules = Modules.objects.prefetch_related('module_materials').all()
+    serializer = ModulesSerializer(modules, many=True, context={'request': request})
+    return Response(serializer.data)
 
 @api_view(['GET'])
 def get_module(request, module_id: str):
-  module = get_object_or_404(Modules, id=module_id)
-  serializer = ModulesSerializer(module, many = False, context={'request': request})
-  return Response(serializer.data)
+    module = get_object_or_404(Modules, id=module_id)
+    serializer = ModulesSerializer(module, many=False, context={'request': request})
+    return Response(serializer.data)
 
 @api_view(['GET'])
 def get_module_questions(request, module_id: str):
-  questions = Question.objects.filter(module_id=module_id)
-  serializer = QuestionSerializer(questions, many = True)
-  return Response(serializer.data)
+    questions = Question.objects.filter(module_id=module_id)
+    serializer = QuestionSerializer(questions, many=True)
+    return Response(serializer.data)
 
 @api_view(['GET'])
-def get_question(request, question_id: str ):
-  question = get_object_or_404(Question, id=question_id)
-  serializer = DynamicQuestionSerializer(question, many = False)
-  return Response(serializer.data)
+def get_question(request, question_id: str):
+    question = get_object_or_404(Question, id=question_id)
+    serializer = DynamicQuestionSerializer(question, many=False)
+    return Response(serializer.data)
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def post_module_answers(request, module_id: str):
-  user = request.user
-  module = get_object_or_404(Modules, id=module_id)
-
-  # Check if the module is locked
-  if not is_module_unlocked(user, module):
-      return Response({"error": "This module is locked"}, status=status.HTTP_403_FORBIDDEN)
-
-  data = request.data.get("answers", [])
-  total_points = 0
-  score = 0
-  questions_answered = 0
-
-  for answer in data:
-    question_id = answer.get("question_id")
-    user_answer = answer.get("answer")
-    correct = answer.get("correct", False)
-
-    question = module.questions_per_module.filter(id=question_id).first()
-    
-    # Check module difficulty
-    category = module.category
-    
-    if category == 'Sentence Composition':
-        correct_answer = question.answer.text.lower().strip().replace(" ", "")
-        user_answer = user_answer.lower().strip().replace(" ", "")
-    elif category == 'Reading Comprehension' or category == 'Vocabulary Skills':
-        correct_answer = question.answer.text
-    else:
-        correct_answer = question.answer
-
-    if question:
-      if not has_answered_question(user, question):
-        save_user_answer(user, question, user_answer)
-        if correct or user_answer == correct_answer:
-          total_points += question.answer.points
-          score += 1
-      questions_answered += 1
-  update_user_experience(user, total_points)
-
-  if questions_answered == module.questions_per_module.count():
-    UserCompletedModules.objects.get_or_create(user=user, module=module)
-    unlock_next_module(user, module)
-
-  return Response(
-      {"message": "Answers submitted successfully", "points_gained": total_points, "score": score, } ,
-      status=status.HTTP_200_OK,
-  )
+    user = request.user
+    module = get_object_or_404(Modules, id=module_id)
+    if not is_module_unlocked(user, module):
+        return Response({"error": "This module is locked"}, status=status.HTTP_403_FORBIDDEN)
+    data = request.data.get("answers", [])
+    total_points = 0
+    score = 0
+    questions_answered = 0
+    for answer in data:
+        question_id = answer.get("question_id")
+        user_answer = answer.get("answer")
+        correct = answer.get("correct", False)
+        question = module.questions_per_module.filter(id=question_id).first()
+        category = module.category
+        if category == 'Sentence Composition':
+            correct_answer = question.answer.text.lower().strip().replace(" ", "")
+            user_answer = user_answer.lower().strip().replace(" ", "")
+        elif category == 'Reading Comprehension' or category == 'Vocabulary Skills':
+            correct_answer = question.answer.text
+        else:
+            correct_answer = question.answer
+        if question and not has_answered_question(user, question):
+            save_user_answer(user, question, user_answer)
+            if correct or user_answer == correct_answer:
+                total_points += question.answer.points
+                score += 1
+        questions_answered += 1
+    update_user_experience(user, total_points)
+    if questions_answered == module.questions_per_module.count():
+        UserCompletedModules.objects.get_or_create(user=user, module=module)
+        unlock_next_module(user, module)
+    return Response({"message": "Answers submitted successfully", "points_gained": total_points, "score": score}, status=status.HTTP_200_OK)
 
 def get_speech_config():
   speech_key = settings.AZURE['SPEECH_KEY']
@@ -278,7 +242,6 @@ def assess_pronunciation(request):
             UserCompletedModules.objects.get_or_create(user=user, module=question.module)
             unlock_next_module(user, question.module)
 
-            
         return Response({
             "recognized_text": result.text,
             "accuracy_score": pronunciation_result.accuracy_score,

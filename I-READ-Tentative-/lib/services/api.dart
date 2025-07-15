@@ -8,51 +8,42 @@ import 'package:i_read_app/models/answer.dart';
 import 'package:i_read_app/models/module.dart';
 import 'package:i_read_app/models/question.dart';
 import 'package:i_read_app/models/user.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Added for FirebaseAuth
+// import 'package:firebase_auth/firebase_auth.dart'; // Commented out Firebase
 
 class ApiService {
-  // Initialize secure storage
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
-  // Helper to get Firebase ID token
-  Future<String?> _getFirebaseIdToken() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      return await user?.getIdToken();
-    } catch (e) {
-      log('Error getting Firebase ID token: $e');
-      return null;
-    }
-  }
+  // Commented out Firebase token getter
+  // Future<String?> _getFirebaseIdToken() async {
+  //   try {
+  //     final user = FirebaseAuth.instance.currentUser;
+  //     return await user?.getIdToken();
+  //   } catch (e) {
+  //     log('Error getting Firebase ID token: $e');
+  //     return null;
+  //   }
+  // }
 
   Future<AccessToken?> postGenerateToken(String email, String password) async {
     try {
-      // Request body
       Map<String, String> requestBody = {"email": email, "password": password};
-
-      // Request body
       Map<String, String> requestHeader = {"Content-Type": 'application/json'};
 
       var url = Uri.parse('${Constants.baseUrl}/api/token');
       var response = await http
           .post(url, headers: requestHeader, body: jsonEncode(requestBody))
-          .timeout(const Duration(seconds: 10)); // Set timeout to 10 seconds
-
+          .timeout(const Duration(seconds: 10));
+      print("Response body: ${response.body}");
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         AccessToken accessToken = AccessToken.fromJson(data);
-
-        // Store token securely
         await _secureStorage.write(
-          key: 'accessToken',
-          value: accessToken.accessToken,
-        );
-
+            key: 'accessToken', value: accessToken.accessToken);
+        String? stored = await _secureStorage.read(key: 'accessToken');
+        print("✅ Stored token (from secure storage): $stored");
         return accessToken;
       } else {
-        log(
-          'Failed to retrieve access token. Status code: ${response.statusCode}',
-        );
+        log('Failed to retrieve access token. Status code: ${response.statusCode}');
         throw 'Failed to retrieve access token. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -63,7 +54,9 @@ class ApiService {
 
   Future<UserProfile?> getProfile() async {
     try {
-      String? idToken = await _getFirebaseIdToken();
+      String? idToken =
+          await getStoredAccessToken(); // replaced Firebase token with stored Django token
+      print('Stored token after login: $idToken');
       Map<String, String> requestHeader = {
         "Content-Type": 'application/json',
         "Authorization": 'Bearer $idToken',
@@ -74,8 +67,7 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        UserProfile userProfile = UserProfile.fromJson(data);
-        return userProfile;
+        return UserProfile.fromJson(data);
       } else {
         log('Failed to retrieve profile. Status code: ${response.statusCode}');
         log('Response body: ${response.body}');
@@ -89,7 +81,9 @@ class ApiService {
 
   Future<List<Module>> getModules() async {
     try {
-      String? idToken = await _getFirebaseIdToken();
+      String? idToken = await getStoredAccessToken(); // replaced Firebase token
+      print('Stored token: $idToken');
+
       Map<String, String> requestHeader = {
         "Content-Type": 'application/json',
         "Authorization": 'Bearer $idToken',
@@ -99,19 +93,11 @@ class ApiService {
       var response = await http.get(url, headers: requestHeader);
 
       if (response.statusCode == 200) {
-        final data =
-            jsonDecode(response.body) as List<dynamic>; // Decoding as a List
-        List<Module> modules = data
-            .map((moduleJson) => Module.fromJson(moduleJson))
-            .toList(); // Mapping each item in the list to a Module
-        return modules; // Return the list of modules
+        final data = jsonDecode(response.body) as List<dynamic>;
+        return data.map((moduleJson) => Module.fromJson(moduleJson)).toList();
       } else {
         log('Failed to retrieve modules. Status code: ${response.statusCode}');
         log('Response body: ${response.body}');
-        print(
-          'Failed to retrieve modules. Status code: ${response.statusCode}',
-        );
-        print('Response body: ${response.body}');
         throw 'Failed to retrieve modules. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -122,28 +108,21 @@ class ApiService {
 
   Future<List<Question>?> getModuleQuestions(String moduleId) async {
     try {
-      String? idToken = await _getFirebaseIdToken();
+      String? idToken = await getStoredAccessToken();
       Map<String, String> requestHeader = {
         "Content-Type": 'application/json',
         "Authorization": 'Bearer $idToken',
       };
 
-      var url = Uri.parse(
-        '${Constants.baseUrl}/api/modules/$moduleId/questions',
-      );
+      var url =
+          Uri.parse('${Constants.baseUrl}/api/modules/$moduleId/questions');
       var response = await http.get(url, headers: requestHeader);
 
       if (response.statusCode == 200) {
-        final data =
-            jsonDecode(response.body) as List<dynamic>; // Decoding as a List
-        List<Question> questions = data
-            .map((moduleJson) => Question.fromJson(moduleJson))
-            .toList(); // Mapping each item in the list to a Module
-        return questions; // Return the list of modules
+        final data = jsonDecode(response.body) as List<dynamic>;
+        return data.map((moduleJson) => Question.fromJson(moduleJson)).toList();
       } else {
-        log(
-          'Failed to retrieve questions. Status code: ${response.statusCode}',
-        );
+        log('Failed to retrieve questions. Status code: ${response.statusCode}');
         log('Response body: ${response.body}');
         throw 'Failed to retrieve questions. Status code: ${response.statusCode}';
       }
@@ -155,7 +134,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getQuestionAnswer(String questionId) async {
     try {
-      String? idToken = await _getFirebaseIdToken();
+      String? idToken = await getStoredAccessToken();
       Map<String, String> requestHeader = {
         "Content-Type": 'application/json',
         "Authorization": 'Bearer $idToken',
@@ -168,9 +147,7 @@ class ApiService {
         final data = jsonDecode(response.body);
         return data['answer'];
       } else {
-        log(
-          'Failed to retrieve questions. Status code: ${response.statusCode}',
-        );
+        log('Failed to retrieve questions. Status code: ${response.statusCode}');
         throw 'Failed to retrieve questions. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -179,25 +156,11 @@ class ApiService {
     }
   }
 
-  // Retrieve token from secure storage
-  Future<String?> getStoredAccessToken() async {
-    return await _secureStorage.read(key: 'accessToken');
-  }
-
-  // Delete token from secure storage
-  Future<void> clearAccessToken() async {
-    await _secureStorage.delete(key: 'accessToken');
-  }
-
   Future<Map<String, dynamic>> postSubmitModuleAnswer(
-    String moduleId,
-    List<Answer> answers,
-  ) async {
+      String moduleId, List<Answer> answers) async {
     try {
-      // Request body
       Map<String, List<Answer>> requestBody = {"answers": answers};
-
-      String? idToken = await _getFirebaseIdToken();
+      String? idToken = await getStoredAccessToken();
       Map<String, String> requestHeader = {
         "Content-Type": 'application/json',
         "Authorization": 'Bearer $idToken',
@@ -209,14 +172,11 @@ class ApiService {
         headers: requestHeader,
         body: jsonEncode(requestBody),
       );
-      print(jsonDecode(response.body));
+
       if (response.statusCode == 200) {
-        Map<String, dynamic> data = jsonDecode(response.body);
-        return data;
+        return jsonDecode(response.body);
       } else {
-        log(
-          'Failed to submit module answer. Status code: ${response.statusCode}',
-        );
+        log('Failed to submit module answer. Status code: ${response.statusCode}');
         throw 'Failed to submit module answer. Status code: ${response.statusCode}';
       }
     } catch (e) {
@@ -231,7 +191,7 @@ class ApiService {
     questionId,
   ) async {
     try {
-      String? idToken = await _getFirebaseIdToken();
+      String? idToken = await getStoredAccessToken();
       Map<String, String> requestHeader = {
         "Authorization": 'Bearer $idToken',
         "Content-Type": "multipart/form-data",
@@ -243,11 +203,8 @@ class ApiService {
       );
 
       request.headers.addAll(requestHeader);
-
-      request.files.add(
-        await http.MultipartFile.fromPath('audio_file', filePath),
-      );
-
+      request.files
+          .add(await http.MultipartFile.fromPath('audio_file', filePath));
       request.fields['reference_text'] = referenceText;
       request.fields['question_id'] = questionId;
 
@@ -256,8 +213,7 @@ class ApiService {
       if (response.statusCode == 200) {
         var responseBody = await http.Response.fromStream(response);
         log('File uploaded successfully: ${responseBody.body}');
-        Map<String, dynamic> data = jsonDecode(responseBody.body);
-        return data;
+        return jsonDecode(responseBody.body);
       } else {
         log('File upload failed with status: ${response.statusCode}');
         throw 'Failed to upload file. Status code: ${response.statusCode}';
@@ -266,5 +222,13 @@ class ApiService {
       log('Error occurred: $e');
       throw e.toString();
     }
+  }
+
+  Future<String?> getStoredAccessToken() async {
+    return await _secureStorage.read(key: 'accessToken');
+  }
+
+  Future<void> clearAccessToken() async {
+    await _secureStorage.delete(key: 'accessToken');
   }
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:i_read_app/services/firestore_module_service.dart';
+// import 'package:i_read_app/services/firestore_module_service.dart'; // ❌ Firebase service
 import 'package:i_read_app/models/module.dart';
+import 'package:i_read_app/services/api.dart'; // ✅ Django API service
 
 class ModulesMenu extends StatefulWidget {
   const ModulesMenu(
@@ -14,18 +15,21 @@ class ModulesMenu extends StatefulWidget {
 class _ModulesMenuState extends State<ModulesMenu> {
   List<Map<String, dynamic>> modules = [];
   bool isLoading = true;
-  // ApiService apiService = ApiService();
-  final FirestoreModuleService firestoreModuleService = FirestoreModuleService();
+
+  // final FirestoreModuleService firestoreModuleService = FirestoreModuleService(); // ❌ Firebase
+  final ApiService apiService = ApiService(); // ✅ Django-based
 
   @override
   void initState() {
     super.initState();
-    _loadModules(); // Automatically called when the screen loads
+    _loadModules();
   }
 
   Future<void> _loadModules() async {
     try {
-      List<Module> storedModules = await firestoreModuleService.getModules();
+      // List<Module> storedModules = await firestoreModuleService.getModules(); // ❌ Firebase
+      List<Module> storedModules = await apiService.getModules(); // ✅ Django
+
       Map<String, Map<String, dynamic>> moduleMap = {};
 
       for (var module in storedModules) {
@@ -112,7 +116,6 @@ class _ModulesMenuState extends State<ModulesMenu> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Overall progress section
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Column(
@@ -152,7 +155,6 @@ class _ModulesMenuState extends State<ModulesMenu> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Module categories list
                   Expanded(
                     child: ListView.builder(
                       itemCount: modules.length,
