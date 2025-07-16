@@ -230,7 +230,7 @@ class ModuleBuilderView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
         teacher = get_object_or_404(Teachers, user=user)
-        modules = Modules.objects.filter(created_by=teacher)
+        modules = Modules.objects.all()
 
         # Apply filters
         difficulty = self.request.GET.get('difficulty')

@@ -115,6 +115,8 @@ class Teachers(BaseModel):
 
     class Meta:
         db_table = "teachers"
+        verbose_name = "Teacher"
+        verbose_name_plural = "Teachers"
 
     def __str__(self):
         return self.user.full_name()
