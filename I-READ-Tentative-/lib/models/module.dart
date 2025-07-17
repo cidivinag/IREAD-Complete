@@ -38,23 +38,29 @@ class Module {
       id: json['id'] ?? '',
       title: json['title'] ?? '',
       description: json['description'] ?? '',
-      difficulty: json['difficulty'] ?? '',
-      category: json['category'] ?? '',
+      difficulty: json['difficulty'] ?? 'Easy',
+      category: json['category'] ?? 'Uncategorized',
       slug: json['slug'] ?? '',
       createdBy: json['created_by'] ?? '',
-      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
-      questionsPerModule: (json['questions_per_module'] as List<dynamic>?)
-              ?.map((q) => Question.fromJson(q))
-              .toList() ??
-          [],
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at']) 
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null 
+          ? DateTime.parse(json['updated_at']) 
+          : null,
+      questionsPerModule: json['questions_per_module'] != null
+          ? (json['questions_per_module'] as List)
+              .map((q) => Question.fromJson(q))
+              .toList()
+          : [],
+      materials: json['materials'] != null
+          ? (json['materials'] as List)
+              .map((m) => ModuleMaterial.fromJson(m))
+              .toList()
+          : [],
       isLocked: json['isLock'] ?? false,
-      completed: json['progress'] ?? 0,
+      completed: json['completed'] ?? 0,
       fileUrl: json['file_url'] ?? '',
-      materials: (json['module_materials'] as List<dynamic>?)
-              ?.map((m) => ModuleMaterial.fromJson(m))
-              .toList() ??
-          [],
     );
   }
 

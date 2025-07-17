@@ -1,6 +1,6 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from apps.models import Modules, Question, User_Module_Answer, Answer, User_Word_Pronunciation_Answer, UserCompletedModules, Users, ModuleMaterials, UserExperience
+from apps.models import Modules, Question, User_Module_Answer, Answer, User_Word_Pronunciation_Answer, UserCompletedModules, Users, ModuleMaterials, UserExperience, Students
 from apps.utils import are_texts_similar
 from .serializers import ModulesSerializer, QuestionSerializer, UserSerializer, DynamicQuestionSerializer
 from django.shortcuts import get_object_or_404
@@ -348,3 +348,23 @@ def get_modules_with_lock_status(user):
           "isLock": not is_module_unlocked(user, module),
       })
   return Response(module_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_list(request):
+    """
+    List all students with their basic information
+    """
+    students = Students.objects.all().select_related('user', 'section')
+    
+    student_data = [{
+        'id': student.user.id,
+        'username': student.user.username,
+        'email': student.user.email,
+        'first_name': student.user.first_name,
+        'last_name': student.user.last_name,
+        'section': student.section.section_name if student.section else None,
+        'is_active': student.user.is_active
+    } for student in students]
+    
+    return Response({'students': student_data})

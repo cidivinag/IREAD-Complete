@@ -62,4 +62,8 @@ flutter {
 dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.4.0') // Ensure this is up-to-date
     implementation 'com.google.firebase:firebase-analytics'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation 'androidx.window:window:1.2.0'
+    implementation 'androidx.window:window-java:1.2.0'
+    implementation 'androidx.core:core-ktx:1.12.0'
 }

@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .views import student_list
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -17,4 +18,5 @@ urlpatterns = [
   path('questions/<str:question_id>', views.get_question), #GET SPECIFIC MODULE QUESTION
   path('modules/<str:module_id>/answer', views.post_module_answers), #SUBMIT USER ANSWER FOR SPECIFIC MODULE
   path('assess/pronunciation', views.assess_pronunciation), #SUBMIT USER ANSWER FOR SPECIFIC MODULE
+  path('students/', student_list, name='student-list'),
 ]
