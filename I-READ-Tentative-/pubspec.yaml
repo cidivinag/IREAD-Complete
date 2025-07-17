@@ -30,6 +30,7 @@ dependencies:
   string_similarity: ^2.1.1
   shared_preferences: ^2.2.0
   flutter_secure_storage: ^9.0.0
+  azure_cognitive_services: ^0.2.0
 
 dev_dependencies:
   flutter_test:

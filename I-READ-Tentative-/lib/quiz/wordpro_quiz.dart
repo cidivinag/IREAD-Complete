@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+//import 'package:flutter_tts/flutter_stt.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:i_read_app/models/answer.dart';
@@ -47,6 +48,10 @@ class _WordProQuizState extends State<WordProQuiz> {
   Timer? _silenceTimer;
   Timer? _nextButtonTimer;
   StreamSubscription? _recorderSubscription;
+  int attemptCounter = 0;
+  int mistakes = 0;
+  double totalAccuracy = 0;
+  double bestAccuracy = 0;
 
   @override
   void initState() {
