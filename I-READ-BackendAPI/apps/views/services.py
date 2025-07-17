@@ -255,6 +255,7 @@ def add_new_module_service(request: HttpRequest):
 
         # Add modules to context (for initial render and error cases)
         context["modules"] = Modules.objects.filter(created_by=teacher)
+        #context["modules"] = Modules.objects.all()
 
         # Add choices to context
         try:
@@ -333,6 +334,7 @@ def add_new_module_service(request: HttpRequest):
 
                 # Update modules in context after saving
                 context["modules"] = Modules.objects.filter(created_by=teacher)
+                #context["modules"] = Modules.objects.all()
                 context["success_message"] = f"Module '{title}' created successfully!"
                 logger.debug("Success message set")
 
