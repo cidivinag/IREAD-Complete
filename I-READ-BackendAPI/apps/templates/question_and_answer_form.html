@@ -150,6 +150,7 @@
     </div>
 
     <script>
+        const slug = "{{ slug|escapejs }}";
         document.addEventListener('DOMContentLoaded', function () {
             const questionsContainer = document.getElementById('questions-container');
             const addQuestionBtn = document.getElementById('add-question');
@@ -193,7 +194,7 @@
             }
 
             function updateFormElements(questionBlock, questionIndex) {
-                questionBlock.querySelectorAll('[name="question"]').forEach(element => {
+                questionBlock.querySelectorAll('[name="question_text"]').forEach(element => {
                     element.name = `question_${questionIndex}`;  // Unique question name
                 });
     

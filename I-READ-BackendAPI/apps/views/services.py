@@ -488,7 +488,7 @@ def question_and_answer_form_service(request, slug):
 
         for idx in range(question_count):
             if idx == 0:
-                question_text = request.POST.get("question_text")
+                question_text = request.POST.get("question")
                 points = request.POST.get("points")
                 question_type = request.POST.get("question_type")
             else:

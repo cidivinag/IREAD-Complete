@@ -22,11 +22,20 @@ from apps.models import (
     Answer,
     UserCompletedModules,
     User_Module_Answer,
+    Choice,
     QUESTION_TYPE_CHOICES
 )
 from apps.utils import are_texts_similar
 from django.db.models import Value
 from django.db.models.functions import Concat
+
+def question_and_answer_form_view(request, slug):
+    ...
+    return render(request, "question_and_answer_form.html", {
+        'slug': slug,
+        # plus anything else in your context like:
+        'category_choice': category_choice,
+    })
 
 # Create your views here.
 class SignInView(TemplateView):
@@ -323,3 +332,50 @@ class QuestionAnswerCreateView(LoginRequiredMixin, TemplateView):
         context["category_choice"] = [category_choice]
         context["module_builder_active"] = "bg-indigo-500 text-white px-2 rounded-lg font-semibold hover:text-indigo-600 hover:bg-white"
         return context
+    
+    def post(self, request, *args, **kwargs):
+        slug = self.kwargs.get("slug")
+        module = get_object_or_404(Modules, slug=slug)
+
+        question_count = int(request.POST.get("question_count", 0))
+
+        for i in range(question_count):
+            q_text = request.POST.get(f"question_{i}")
+            q_points = request.POST.get(f"points_{i}")
+            q_type = request.POST.get(f"question_type_{i}")
+            answer_text = request.POST.get(f"answer_{i}")
+
+            print(f"q_text: {q_text}, q_points: {q_points}, q_type: {q_type}, answer_text: {answer_text}")
+            if not all([q_text, q_points, q_type, answer_text]):
+                continue  # Skip if any essential field is missing
+
+            # Save the question
+            question = Question.objects.create(
+                module=module,
+                text=q_text.strip(),
+                question_type=q_type,
+            )
+
+            # Save the answer
+            Answer.objects.create(
+                question=question,
+                text=answer_text.strip(),
+                points=int(q_points),
+            )
+
+            # Save choices (only for multiple_choice)
+            if q_type == "multiple_choice":
+                choice_index = 0
+                while True:
+                    choice_val = request.POST.get(f"choice_{i}_{choice_index}")
+                    if not choice_val:
+                        break
+                    Choice.objects.create(
+                        question=question,
+                        text=choice_val.strip(),
+                        is_correct=(choice_val.strip() == answer_text.strip())
+                    )
+                    choice_index += 1
+
+        messages.success(request, "Questions saved successfully!")
+        return redirect("module-detail", slug=slug)  # or any page you prefer
