@@ -16,10 +16,10 @@ class _ProfileMenuState extends State<ProfileMenu> {
   int xp = 0;
   int completedModules = 0;
   int totalModules = 0;
-  String fullName = 'FullName';
-  String strand = 'Strand';
-  String schoolName = 'School';
-  String rank = 'Unranked';
+  String fullName = '';
+  String strand = '';
+  String schoolName = '';
+  String rank = '';
   List<CompletedModule> completedModulesList = [];
   final djangoUserProfileService = DjangoUserProfileService();
 

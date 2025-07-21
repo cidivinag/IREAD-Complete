@@ -194,12 +194,12 @@ class ApiService {
       String? idToken = await getStoredAccessToken();
       Map<String, String> requestHeader = {
         "Authorization": 'Bearer $idToken',
-        "Content-Type": "multipart/form-data",
+        //"Content-Type": "multipart/form-data",
       };
 
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('${Constants.baseUrl}/api/assess/pronounciation'),
+        Uri.parse('${Constants.baseUrl}/api/assess/pronunciation'),
       );
 
       request.headers.addAll(requestHeader);
@@ -207,6 +207,7 @@ class ApiService {
           .add(await http.MultipartFile.fromPath('audio_file', filePath));
       request.fields['reference_text'] = referenceText;
       request.fields['question_id'] = questionId;
+      //request.fields['Authorization'] = 'Bearer $idToken';
 
       var response = await request.send();
 

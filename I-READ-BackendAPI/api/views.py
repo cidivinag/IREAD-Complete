@@ -9,6 +9,7 @@ from django.db.models import Sum, F
 from django.conf import settings
 import azure.cognitiveservices.speech as speechsdk
 import os
+import stat
 import tempfile
 from pydub import AudioSegment
 from fuzzywuzzy import fuzz
@@ -194,16 +195,27 @@ def assess_pronunciation(request):
   with open(audio_path, "wb") as f:
     for chunk in audio_file.chunks():
         f.write(chunk)
+
+  print(f"[PERMISSION CHECK] File path: {audio_path}")
+  print(f"[PERMISSION CHECK] Exists: {os.path.exists(audio_path)}")
+  print(f"[PERMISSION CHECK] Readable: {os.access(audio_path, os.R_OK)}")
+  print(f"[PERMISSION CHECK] File mode: {oct(os.stat(audio_path).st_mode)}")
+
   try:
       # Convert M4A to WAV using pydub
     if audio_path.endswith('.m4a'):
         wav_path = audio_path.replace('.m4a', '.wav')
         audio = AudioSegment.from_file(audio_path, format="m4a")
+        audio = audio.set_channels(1).set_frame_rate(16000)
         audio.export(wav_path, format="wav")
         os.remove(audio_path)  # Remove original M4A file
 
         # Set the converted WAV file path for Azure processing
         audio_path = wav_path
+
+    print(f"[DEBUG] Submitting to Azure with audio path: {audio_path}")
+    print(f"[DEBUG] File exists: {os.path.exists(audio_path)}")
+    print(f"[DEBUG] File size: {os.path.getsize(audio_path)} bytes")
 
     speech_config = get_speech_config()
     pronunciation_config = speechsdk.PronunciationAssessmentConfig(
@@ -260,6 +272,8 @@ def assess_pronunciation(request):
         return Response({"error": error_msg}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
   except Exception as e:
+    import traceback
+    print(traceback.format_exc())
     return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 ## current has error when removing temp files

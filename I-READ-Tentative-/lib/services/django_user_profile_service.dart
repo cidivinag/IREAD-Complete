@@ -1,49 +1,64 @@
 // 📄 django_user_profile_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:i_read_app/models/user.dart'; // Reuse your existing models
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:i_read_app/models/user.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+// import 'package:firebase_auth/firebase_auth.dart'; // Commented out Firebase
 
 class DjangoUserProfileService {
   final String baseUrl =
-      'https://your-api.com'; // replace with actual backend URL
+      'http://10.0.2.2:8000'; // Replace with your backend URL
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   Future<UserProfile?> fetchUserProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-    final idToken = await user?.getIdToken();
+    try {
+      // Read token from secure storage (set during login)
+      final token = await _secureStorage.read(key: 'accessToken');
+      print('[DEBUG] Token from secure storage: $token');
 
-    final response = await http.get(
-      Uri.parse('$baseUrl/profile'),
-      headers: {
-        'Authorization': 'Bearer $idToken',
-        'Content-Type': 'application/json',
-      },
-    );
+      if (token == null) {
+        print('❌ No access token found');
+        return null;
+      }
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-
-      final completedModulesRaw = data['completed_modules'] ?? [];
-      final completedModules = (completedModulesRaw as List)
-          .map((m) => CompletedModule.fromJson(m))
-          .toList();
-
-      return UserProfile(
-        id: user?.uid ?? '',
-        username: data['username'] ?? '',
-        email: data['email'] ?? '',
-        firstName: data['first_name'] ?? '',
-        lastName: data['last_name'] ?? '',
-        middleName: data['middle_name'] ?? '',
-        isStaff: data['is_staff'] ?? false,
-        isActive: data['is_active'] ?? true,
-        experience: data['experience'] ?? 0,
-        rank: data['rank'] ?? 'Unranked',
-        section: data['section'] ?? '',
-        completedModules: completedModules,
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/profile'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
       );
-    } else {
-      print('Error: ${response.statusCode} ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        final completedModulesRaw = data['completed_modules'] ?? [];
+        final completedModules = (completedModulesRaw as List)
+            .map((m) => CompletedModule.fromJson(m))
+            .toList();
+
+        return UserProfile(
+          id: data['id']?.toString() ?? '',
+          username: data['username'] ?? '',
+          email: data['email'] ?? '',
+          firstName: data['first_name'] ?? '',
+          lastName: data['last_name'] ?? '',
+          middleName: data['middle_name'] ?? '',
+          isStaff: data['is_staff'] ?? false,
+          isActive: data['is_active'] ?? true,
+          experience: data['experience'] ?? 0,
+          rank: data['rank'] ?? 0, // Ensure this matches your model's type
+          section: data['section'] is Map
+              ? data['section']['section'] ?? ''
+              : data['section'] ?? '',
+          completedModules: completedModules,
+        );
+      } else {
+        print('❌ API error: ${response.statusCode} ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Exception in fetchUserProfile: $e');
       return null;
     }
   }

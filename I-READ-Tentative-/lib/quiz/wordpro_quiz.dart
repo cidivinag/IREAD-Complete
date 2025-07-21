@@ -1,13 +1,12 @@
+import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
-import 'package:flutter_sound/flutter_sound.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:i_read_app/models/answer.dart';
 import 'package:i_read_app/models/module.dart';
 import 'package:i_read_app/models/question.dart';
 import 'package:i_read_app/services/api.dart';
+import 'package:i_read_app/services/speech_service.dart';
 import 'package:i_read_app/services/storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -31,9 +30,11 @@ class WordProQuiz extends StatefulWidget {
 
 class _WordProQuizState extends State<WordProQuiz> {
   final FlutterTts flutterTts = FlutterTts();
-  final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
   final ApiService apiService = ApiService();
   final StorageService storageService = StorageService();
+  late final SpeechService _speechService;
+  StreamSubscription<String>? _speechSubscription;
+  Timer? _recordingTimer;
 
   List<Question> questions = [];
   int currentQuestionIndex = 0;
@@ -44,16 +45,38 @@ class _WordProQuizState extends State<WordProQuiz> {
   bool showNextButton = false;
   String feedbackMessage = '';
   IconData feedbackIcon = Icons.help;
-  Timer? _silenceTimer;
-  Timer? _nextButtonTimer;
-  StreamSubscription? _recorderSubscription;
+  bool _isInitialized = false;
+  bool _isProcessing = false;
 
   @override
   void initState() {
     super.initState();
+    _initSpeechService();
     _initTTS();
     _loadQuestions();
-    _initRecorder();
+  }
+
+  Future<void> _initSpeechService() async {
+    try {
+      _speechService = await SpeechService.getInstance();
+      _speechSubscription = _speechService.recognitionResult.listen((text) {
+        if (text.isNotEmpty) {
+          setState(() {
+            recognizedText = text;
+          });
+          if (_isGoodMatch(text, questions[currentQuestionIndex].text)) {
+            stopListening();
+          }
+        }
+      });
+      _isInitialized = true;
+    } catch (e) {
+      log('Error initializing speech service: $e');
+      setState(() {
+        feedbackMessage = 'Error initializing speech service';
+        feedbackIcon = Icons.error;
+      });
+    }
   }
 
   void _initTTS() async {
@@ -61,22 +84,6 @@ class _WordProQuizState extends State<WordProQuiz> {
     await flutterTts.setSpeechRate(0.4);
     await flutterTts.setPitch(1.0);
     await flutterTts.awaitSpeakCompletion(true);
-
-    flutterTts.setStartHandler(() {
-      debugPrint("🔊 Speech started");
-    });
-
-    flutterTts.setCompletionHandler(() {
-      debugPrint("✅ Speech completed");
-      setState(() {
-        isSpeaking = false;
-        canProceedToNext = true;
-      });
-    });
-
-    flutterTts.setErrorHandler((msg) {
-      debugPrint("❌ TTS Error: $msg");
-    });
   }
 
   Future<void> _speakQuestion() async {
@@ -87,7 +94,7 @@ class _WordProQuizState extends State<WordProQuiz> {
       });
 
       final currentText = questions[currentQuestionIndex].text;
-      final toSpeak = currentText != null && currentText.isNotEmpty
+      final toSpeak = currentText.isNotEmpty
           ? "Please repeat after me, $currentText"
           : "Loading question";
 
@@ -112,90 +119,159 @@ class _WordProQuizState extends State<WordProQuiz> {
     }
   }
 
-  void _initRecorder() async {
-    await _recorder.openRecorder();
-  }
-
-  void startListening() async {
-    if (await Permission.microphone.request().isGranted) {
+  Future<void> startListening() async {
+    if (!_isInitialized) {
       setState(() {
-        recognizedText = 'Listening...';
-        feedbackMessage = '';
-        feedbackIcon = Icons.help;
-        showNextButton = false;
-        isListening = true;
+        feedbackMessage = 'Speech service not ready yet';
+        feedbackIcon = Icons.error;
       });
-      startRecorder();
+      return;
+    }
+
+    final status = await Permission.microphone.request();
+    if (status.isGranted) {
+      try {
+        await _speechService.startListening();
+        setState(() {
+          recognizedText = 'Listening...';
+          feedbackMessage = '';
+          feedbackIcon = Icons.mic;
+          showNextButton = false;
+          isListening = true;
+        });
+
+        _recordingTimer = Timer(const Duration(seconds: 10), stopListening);
+      } catch (e) {
+        log('Error starting speech recognition: $e');
+        setState(() {
+          feedbackMessage = 'Error starting speech recognition';
+          feedbackIcon = Icons.error;
+        });
+      }
     } else {
       setState(() {
-        recognizedText = 'Microphone permission denied.';
+        feedbackMessage = 'Microphone permission denied';
+        feedbackIcon = Icons.mic_off;
       });
     }
   }
 
-  void startRecorder() async {
-    try {
-      await _recorder.startRecorder(
-        toFile: '/storage/emulated/0/Download/myFile.wav',
-        codec: Codec.pcm16WAV,
-      );
-      await Future.delayed(Duration(seconds: 3));
-      await _recorder.setSubscriptionDuration(Duration(milliseconds: 500));
-      _recorderSubscription = _recorder.onProgress?.listen((e) {
-        double volume = e.decibels ?? 0;
-        debugPrint('Volume: $volume');
-        if (volume > 50) {
-          setState(() => isListening = true);
-        } else {
-          stopListening();
-        }
-      });
-    } catch (e) {
-      debugPrint('Error starting recorder: $e');
-    }
-  }
+  Future<void> stopListening() async {
+    if (_isProcessing) return;
+    _isProcessing = true;
+    _recordingTimer?.cancel();
 
-  void stopRecorder() async {
-    await _recorder.stopRecorder();
-    _recorderSubscription?.cancel();
-    _recorderSubscription = null;
-  }
-
-  void stopListening() async {
     try {
       setState(() {
         isListening = false;
-        recognizedText = 'Processing...';
-      });
-      stopRecorder();
-      final filePath = '/storage/emulated/0/Download/myFile.wav';
-
-      Map<String, dynamic> response = await apiService.postAssessPronunciation(
-        filePath,
-        questions[currentQuestionIndex].text,
-        questions[currentQuestionIndex].id,
-      );
-
-      setState(() {
-        recognizedText = response['recognized_text'];
-        feedbackMessage =
-            'Your pronunciation is ${response['accuracy_score']}% accurate';
-        if (response['accuracy_score'] >= 80) {
-          feedbackIcon = Icons.check_circle;
-          showNextButton = true;
-        } else {
-          feedbackIcon = Icons.cancel;
-          showNextButton = false;
+        if (recognizedText.isEmpty) {
+          recognizedText = 'Processing...';
         }
       });
 
-      await Future.delayed(Duration(seconds: 1));
-      if (response.isNotEmpty) {
-        await _showAssesmentResult(response);
+      await _speechService.stopListening();
+
+      if (recognizedText.isNotEmpty && recognizedText != 'Listening...') {
+        final expectedText = questions[currentQuestionIndex].text;
+
+        final isCorrect = _isGoodMatch(recognizedText, expectedText);
+
+        setState(() {
+          if (isCorrect) {
+            feedbackMessage = 'Correct! Well done!';
+            feedbackIcon = Icons.check_circle;
+            showNextButton = true;
+            canProceedToNext = true;
+          } else {
+            feedbackMessage = 'Try again. You said: $recognizedText';
+            feedbackIcon = Icons.cancel;
+            showNextButton = false;
+            canProceedToNext = false;
+          }
+        });
+
+        await flutterTts.stop();
+        await flutterTts.speak(isCorrect ? 'Correct! Well done!' : 'Try again');
+
+        // Show assessment dialog with local scoring
+        await _showAssesmentResult({
+          'recognized_text': recognizedText,
+          'accuracy_score': _getAccuracyScore(recognizedText, expectedText),
+          'fluency_score': _getAccuracyScore(recognizedText, expectedText) - 5,
+          'pronunciation_score':
+              _getAccuracyScore(recognizedText, expectedText),
+          'completeness_score':
+              (_getAccuracyScore(recognizedText, expectedText) + 5)
+                  .clamp(0, 100),
+          'prosody_score': null,
+        });
       }
     } catch (e) {
-      debugPrint('Error assessing pronunciation: $e');
+      log('Error in stopListening: $e');
+      setState(() {
+        feedbackMessage = 'Error processing your speech';
+        feedbackIcon = Icons.error;
+        showNextButton = false;
+        canProceedToNext = false;
+      });
+    } finally {
+      _isProcessing = false;
     }
+  }
+
+  bool _isGoodMatch(String recognized, String expected) {
+    final expectedWord = expected.split(':').last.trim().toLowerCase();
+    final recognizedClean = recognized.toLowerCase().trim();
+
+    if (recognizedClean.contains(expectedWord) ||
+        expectedWord.contains(recognizedClean)) {
+      return true;
+    }
+
+    final distance = _levenshteinDistance(recognizedClean, expectedWord);
+    final maxLen = expectedWord.length;
+    final threshold = (maxLen * 0.3).ceil();
+
+    return distance <= threshold;
+  }
+
+  int _getAccuracyScore(String recognized, String expected) {
+    final expectedWord = expected.split(':').last.trim().toLowerCase();
+    final recognizedClean = recognized.toLowerCase().trim();
+
+    int distance = _levenshteinDistance(recognizedClean, expectedWord);
+    int maxLen = expectedWord.length;
+
+    double similarity = (1.0 - (distance / maxLen)).clamp(0.0, 1.0);
+    return (similarity * 100).round();
+  }
+
+  int _levenshteinDistance(String s, String t) {
+    if (s == t) return 0;
+    if (s.isEmpty) return t.length;
+    if (t.isEmpty) return s.length;
+
+    List<int> v0 = List.generate(t.length + 1, (i) => i);
+    List<int> v1 = List.filled(t.length + 1, 0);
+
+    for (int i = 0; i < s.length; i++) {
+      v1[0] = i + 1;
+
+      for (int j = 0; j < t.length; j++) {
+        int cost = s[i] == t[j] ? 0 : 1;
+        v1[j + 1] = [
+          v1[j] + 1,
+          v0[j + 1] + 1,
+          v0[j] + cost,
+        ].reduce((a, b) => a < b ? a : b);
+      }
+
+      List<int> temp = v0;
+      v0 = v1;
+      v1 = temp;
+    }
+
+    return v0[t.length];
   }
 
   Future<void> _showAssesmentResult(Map<String, dynamic> result) async {
@@ -206,6 +282,7 @@ class _WordProQuizState extends State<WordProQuiz> {
           title: Text('Assessment Breakdown'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Recognized Text: ${result['recognized_text']}'),
               Text('Accuracy: ${result['accuracy_score']}%'),
@@ -222,7 +299,7 @@ class _WordProQuizState extends State<WordProQuiz> {
                 Navigator.of(dialogContext).pop();
                 _nextQuestion();
               },
-              child: Text('Close'),
+              child: Text('Next'),
             ),
           ],
         );
@@ -393,10 +470,9 @@ class _WordProQuizState extends State<WordProQuiz> {
   @override
   void dispose() {
     flutterTts.stop();
-    _recorder.closeRecorder();
-    _recorderSubscription?.cancel();
-    _silenceTimer?.cancel();
-    _nextButtonTimer?.cancel();
+    _speechSubscription?.cancel();
+    _recordingTimer?.cancel();
+    _speechService.dispose();
     super.dispose();
   }
 }

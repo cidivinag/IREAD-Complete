@@ -1,4 +1,3 @@
-
 class UserProfile {
   String id;
   String username;
