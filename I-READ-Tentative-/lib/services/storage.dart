@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class StorageService {
   static const String _modulesKey = 'modules';
   static const String _userProfileKey = 'userProfile';
+  static const String _totalModulesKey = 'totalModules';
 
   // Store modules as JSON string
   Future<void> storeModules(List<Module>? modules) async {
@@ -47,8 +48,20 @@ class StorageService {
     return null;
   }
 
+  // Store total modules count
+  Future<void> storeTotalModules(int count) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_totalModulesKey, count);
+  }
+
+  // Get total modules count
+  Future<int> getTotalModules() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_totalModulesKey) ?? 0;
+  }
+
   // Clear all stored data
-  Future<void> clearStorage() async {
+  Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }

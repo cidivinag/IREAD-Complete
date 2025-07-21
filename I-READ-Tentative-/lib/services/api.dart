@@ -26,10 +26,11 @@ class ApiService {
 
   Future<AccessToken?> postGenerateToken(String email, String password) async {
     try {
+      print("🔐 Attempting token request...");
       Map<String, String> requestBody = {"email": email, "password": password};
       Map<String, String> requestHeader = {"Content-Type": 'application/json'};
 
-      var url = Uri.parse('${Constants.baseUrl}/api/token');
+      var url = Uri.parse('${Constants.baseUrl}/api/token/');
       var response = await http
           .post(url, headers: requestHeader, body: jsonEncode(requestBody))
           .timeout(const Duration(seconds: 10));

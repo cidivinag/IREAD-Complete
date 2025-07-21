@@ -10,6 +10,7 @@ class DjangoUserProfileService {
       'http://10.0.2.2:8000'; // Replace with your backend URL
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
+  
   Future<UserProfile?> fetchUserProfile() async {
     try {
       // Read token from secure storage (set during login)
@@ -47,7 +48,8 @@ class DjangoUserProfileService {
           isStaff: data['is_staff'] ?? false,
           isActive: data['is_active'] ?? true,
           experience: data['experience'] ?? 0,
-          rank: data['rank'] ?? 0, // Ensure this matches your model's type
+          rank: data['rank'] ?? 0, 
+          strand: data['strand'] ?? '',
           section: data['section'] is Map
               ? data['section']['section'] ?? ''
               : data['section'] ?? '',
@@ -61,5 +63,30 @@ class DjangoUserProfileService {
       print('❌ Exception in fetchUserProfile: $e');
       return null;
     }
+    
   }
+
+  Future<void> debugFetchTotalModulesFromBuilder() async {
+  try {
+    final token = await _secureStorage.read(key: 'accessToken');
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/module/builder/'),
+      headers: {
+        if (token != null) 'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      print('[DEBUG] /module/builder/ returned ${data.length} modules');
+    } else {
+      print('[DEBUG] Failed to fetch from /module/builder/: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('[DEBUG] Exception while hitting /module/builder/: $e');
+  }
+}
+
 }

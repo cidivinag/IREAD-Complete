@@ -70,9 +70,16 @@ class UserModuleAsnwerSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     section = serializers.SerializerMethodField()
+    strand = serializers.SerializerMethodField()
 
     def get_section(self, obj):
         return obj.get_section()
+    
+    def get_strand(self, obj):
+        try:
+            return obj.user_student.strand
+        except Users.user_student.RelatedObjectDoesNotExist:
+            return None
     
     class Meta:
         model = Users

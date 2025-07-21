@@ -5,9 +5,11 @@ class UserProfile {
   String firstName;
   String lastName;
   String middleName;
+  String strand;
   bool isStaff;
   bool isActive;
   int experience;
+  int? totalModules;
   int rank;
   List<CompletedModule> completedModules;
   String section;
@@ -23,6 +25,8 @@ class UserProfile {
     required this.experience,
     required this.rank,
     required this.completedModules,
+    required this.strand,
+    this.totalModules,
     this.section = '',
   });
 
@@ -38,6 +42,7 @@ class UserProfile {
       isActive: json['is_active'],
       experience: json['experience'],
       rank: json['rank'],
+      strand: json['strand'] ?? '',
       completedModules: (json['completed_modules'] as List)
           .map((module) => CompletedModule.fromJson(module))
           .toList(),
@@ -57,9 +62,11 @@ class UserProfile {
       "is_active": isActive,
       "experience": experience,
       "rank": rank,
+      "strand": strand,
       "completed_modules":
           completedModules.map((module) => module.toJson()).toList(),
       "section": section,
+      "total_modules": totalModules,
     };
   }
 }

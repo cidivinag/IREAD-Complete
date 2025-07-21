@@ -26,6 +26,7 @@ class FirestoreUserProfileService {
         isActive: data['is_active'] ?? true,
         experience: data['experience'] ?? 0,
         rank: data['rank'] ?? 0,
+        strand: data['strand'] ?? '',
         completedModules: completedModules,
         section: data['section'] ?? '',
       );

@@ -86,6 +86,8 @@ class _LoginPageState extends State<LoginPage> {
         if (token != null) {
           final modules = await apiService.getModules();
           print('Modules fetched: ${modules.length}');
+          // Store the total number of modules
+          await StorageService().storeTotalModules(modules.length);
           Navigator.of(context).pushReplacementNamed('/home');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

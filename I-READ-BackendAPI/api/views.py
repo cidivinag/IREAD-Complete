@@ -76,6 +76,10 @@ def get_profile(request):
     total_experience = 0
     completed_modules = UserCompletedModules.objects.filter(user=user)
     completed_modules_data = []
+
+    # Get total number of published modules
+    total_modules = Modules.objects.filter(is_published=True).count()
+
     for completed in completed_modules:
         module = completed.module
         if module.category == 'Word Pronunciation':
@@ -99,7 +103,9 @@ def get_profile(request):
         })
     user_profile_data['completed_modules'] = completed_modules_data
     user_profile_data['experience'] = total_experience
+    user_profile_data['total_modules'] = total_modules
     return Response(user_profile_data)
+    
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

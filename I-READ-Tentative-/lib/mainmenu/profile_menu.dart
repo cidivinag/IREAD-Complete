@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:i_read_app/models/module.dart';
 import 'package:i_read_app/models/user.dart';
 import 'package:i_read_app/services/django_user_profile_service.dart';
+import 'package:i_read_app/services/storage.dart';
 
 class ProfileMenu extends StatefulWidget {
   const ProfileMenu({super.key});
@@ -18,6 +19,7 @@ class _ProfileMenuState extends State<ProfileMenu> {
   int totalModules = 0;
   String fullName = '';
   String strand = '';
+  String section = '';
   String schoolName = '';
   String rank = '';
   List<CompletedModule> completedModulesList = [];
@@ -30,19 +32,28 @@ class _ProfileMenuState extends State<ProfileMenu> {
   }
 
   Future<void> fetchUserData() async {
+    print('[DEBUG] Fetching user profile data...');
     UserProfile? userProfile =
         await djangoUserProfileService.fetchUserProfile();
 
-    if (userProfile == null) return;
-
+    if (userProfile == null) {
+      print('[ERROR] Failed to fetch user profile');
+      return;
+    }
+    
+    // Get the total modules count from storage
+    final totalModulesCount = await StorageService().getTotalModules();
+    print('[DEBUG] Total modules count: $totalModulesCount');
+    
     setState(() {
       fullName = '${userProfile.firstName} ${userProfile.lastName}';
       xp = userProfile.experience;
-      completedModules = userProfile.completedModules.length;
-      strand = userProfile.section;
-      completedModulesList = userProfile.completedModules;
       rank = userProfile.rank.toString();
-      // totalModules can be updated later if needed
+      strand = userProfile.strand;
+      section = userProfile.section;
+      completedModules = userProfile.completedModules.length;
+      completedModulesList = userProfile.completedModules;
+      totalModules = totalModulesCount; // Set the total modules count
     });
   }
 
@@ -109,11 +120,17 @@ class _ProfileMenuState extends State<ProfileMenu> {
                           ),
                         ),
                         Text(
-                          strand.isEmpty ? 'Loading...' : strand,
+                          section.isEmpty ? 'Loading...' : 'section: $section',
                           style: GoogleFonts.montserrat(
                             color: const Color(0xFF8B4513),
                           ),
                         ),
+                        Text(
+                          strand.isEmpty ? '' : 'strand: $strand',
+                          style: GoogleFonts.montserrat(
+                            color: const Color(0xFF8B4513),
+                          ),
+                        ),                
                         Text(
                           schoolName,
                           style: GoogleFonts.montserrat(
@@ -150,8 +167,8 @@ class _ProfileMenuState extends State<ProfileMenu> {
               const SizedBox(height: 10),
               _buildProgressCard(
                 'Modules Completed',
-                '$completedModules/$totalModules',
-                completedModules / (totalModules > 0 ? totalModules : 1),
+                totalModules > 0 ? '$completedModules/$totalModules' : 'Loading...',
+                totalModules > 0 ? (completedModules / totalModules) : 0.0,
               ),
               const SizedBox(height: 20),
               Center(
