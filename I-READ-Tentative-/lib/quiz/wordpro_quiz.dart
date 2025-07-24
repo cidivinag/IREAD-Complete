@@ -130,7 +130,7 @@ class _WordProQuizState extends State<WordProQuiz> {
     }
   }
 
-  void startListening() async {
+void startListening() async {
   final permissionStatus = await Permission.microphone.request();
   if (!permissionStatus.isGranted) {
     setState(() {
@@ -159,24 +159,51 @@ class _WordProQuizState extends State<WordProQuiz> {
     showNextButton = false;
   });
 
+  String expected = questions[currentQuestionIndex].text.trim().toLowerCase();
+
   _speech.listen(
     onResult: (result) {
-      if (result.finalResult) {
-        debugPrint('🗣️ Final result: ${result.recognizedWords}');
-        _onSpeechRecognized(result.recognizedWords);
+      String spoken = result.recognizedWords.trim().toLowerCase();
+
+      debugPrint('🗣️ Result: $spoken');
+
+      setState(() {
+        recognizedText = spoken;
+      });
+
+      if (spoken == expected) {
+        debugPrint('✅ Matched early! Stopping STT...');
+        _silenceTimer?.cancel(); // cancel timer here
+        _speech.stop(); // stop only once
+        _onSpeechRecognized(spoken);
+      } else if (result.finalResult) {
+        _onSpeechRecognized(spoken);
       }
     },
     localeId: 'en_US',
     listenMode: stt.ListenMode.confirmation,
+    partialResults: true,
   );
+
+  _silenceTimer?.cancel();
+  _silenceTimer = Timer(Duration(seconds: 8), () {
+    if (_speech.isListening) {
+      debugPrint('⏱️ Timeout reached — stopping STT.');
+      _speech.stop();
+      setState(() {
+        isListening = false;
+        feedbackMessage = "Didn't catch that. Please try again.";
+        feedbackIcon = Icons.cancel;
+      });
+    }
+  });
 }
 
+
+
+
 void _onSpeechRecognized(String spoken) {
-  _speech.stop();
-  setState(() {
-    isListening = false;
-    recognizedText = spoken;
-  });
+  _silenceTimer?.cancel();
 
   String expected = questions[currentQuestionIndex].text.trim().toLowerCase();
   spoken = spoken.trim().toLowerCase();
@@ -184,12 +211,13 @@ void _onSpeechRecognized(String spoken) {
   int accuracy = _calculateAccuracy(expected, spoken);
 
   setState(() {
+    isListening = false;
+    recognizedText = spoken;
     feedbackMessage = 'Your pronunciation is $accuracy% accurate';
     feedbackIcon = accuracy >= 80 ? Icons.check_circle : Icons.cancel;
     showNextButton = accuracy >= 80;
   });
 }
-
 
 
   Future<void> _showAssesmentResult(Map<String, dynamic> result) async {
