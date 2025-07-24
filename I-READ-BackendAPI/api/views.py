@@ -79,7 +79,6 @@ def get_profile(request):
 
     # Get total number of published modules
     total_modules = Modules.objects.filter(is_published=True).count()
-
     for completed in completed_modules:
         module = completed.module
         if module.category == 'Word Pronunciation':
@@ -103,7 +102,6 @@ def get_profile(request):
         })
     user_profile_data['completed_modules'] = completed_modules_data
     user_profile_data['experience'] = total_experience
-    user_profile_data['total_modules'] = total_modules
     return Response(user_profile_data)
     
 
@@ -160,6 +158,10 @@ def post_module_answers(request, module_id: str):
         correct = answer.get("correct", False)
         question = module.questions_per_module.filter(id=question_id).first()
         category = module.category
+
+        if not question:
+            continue
+
         if category == 'Sentence Composition':
             correct_answer = question.answer.text.lower().strip().replace(" ", "")
             user_answer = user_answer.lower().strip().replace(" ", "")
@@ -167,12 +169,23 @@ def post_module_answers(request, module_id: str):
             correct_answer = question.answer.text
         else:
             correct_answer = question.answer
-        if question and not has_answered_question(user, question):
-            save_user_answer(user, question, user_answer)
-            if correct or user_answer == correct_answer:
-                total_points += question.answer.points
-                score += 1
+
+        save_user_answer(user, question, user_answer)
+
+        print("==== DEBUGGING ANSWER MATCHING ====")
+        print(f"Q: {question_id}")
+        print(f"Category: {category}")
+        print(f"User answer: {repr(user_answer)}")
+        print(f"Correct answer: {repr(correct_answer)}")
+        print(f"Match: {user_answer == correct_answer}")
+        print("====================================")
+
+        if correct or user_answer == correct_answer:
+            total_points += question.answer.points
+            score += 1
+
         questions_answered += 1
+
     update_user_experience(user, total_points)
     if questions_answered == module.questions_per_module.count():
         UserCompletedModules.objects.get_or_create(user=user, module=module)
