@@ -150,44 +150,70 @@ def post_module_answers(request, module_id: str):
     if not is_module_unlocked(user, module):
         return Response({"error": "This module is locked"}, status=status.HTTP_403_FORBIDDEN)
 
-    # 🧨 STEP 1: Delete old answers for this module before scoring
-    User_Module_Answer.objects.filter(user=user, question__module=module).delete()
+    # Delete old answers
     if module.category == 'Word Pronunciation':
         User_Word_Pronunciation_Answer.objects.filter(user=user, question__module=module).delete()
+    else:
+        User_Module_Answer.objects.filter(user=user, question__module=module).delete()
 
-    # Continue as normal
     data = request.data.get("answers", [])
     total_points = 0
     score = 0
     questions_answered = 0
 
+    # ✅ Use actual question count for accurate denominator
+    total_questions = Question.objects.filter(module=module).count()
+
+    if module.category == 'Word Pronunciation':
+        for answer in data:
+            question_id = answer.get("question_id")
+            user_answer = answer.get("answer", "")
+            correct = answer.get("correct", False)
+
+            question = Question.objects.filter(id=question_id, module=module).first()
+            if not question:
+                continue
+
+            insert_word_pronunciation(user, question, question.answer.points, user_answer)
+
+            if correct:
+                total_points += question.answer.points
+                score += 1
+                questions_answered += 1
+
+        update_user_experience(user, total_points, module=module)
+
+        if questions_answered == total_questions:
+            UserCompletedModules.objects.get_or_create(user=user, module=module)
+            unlock_next_module(user, module)
+
+        return Response({
+            "message": "Word Pro answers submitted successfully",
+            "points_gained": total_points,
+            "score": score,
+            "total_questions": total_questions  # ✅ added to fix score display on frontend
+        }, status=status.HTTP_200_OK)
+
+    # 🔁 Handle other module categories as before
     for answer in data:
         question_id = answer.get("question_id")
         user_answer = answer.get("answer")
         correct = answer.get("correct", False)
-        question = module.questions_per_module.filter(id=question_id).first()
-        category = module.category
 
+        question = Question.objects.filter(id=question_id, module=module).first()
         if not question:
             continue
 
+        category = module.category
         if category == 'Sentence Composition':
             correct_answer = question.answer.text.lower().strip().replace(" ", "")
             user_answer = user_answer.lower().strip().replace(" ", "")
-        elif category == 'Reading Comprehension' or category == 'Vocabulary Skills':
+        elif category in ['Reading Comprehension', 'Vocabulary Skills']:
             correct_answer = question.answer.text
         else:
             correct_answer = question.answer
 
         save_user_answer(user, question, user_answer)
-
-        print("==== DEBUGGING ANSWER MATCHING ====")
-        print(f"Q: {question_id}")
-        print(f"Category: {category}")
-        print(f"User answer: {repr(user_answer)}")
-        print(f"Correct answer: {repr(correct_answer)}")
-        print(f"Match: {user_answer == correct_answer}")
-        print("====================================")
 
         if correct or user_answer == correct_answer:
             total_points += question.answer.points
@@ -195,12 +221,17 @@ def post_module_answers(request, module_id: str):
 
         questions_answered += 1
 
-    update_user_experience(user, total_points, module=module)  
-    if questions_answered == module.questions_per_module.count():
+    update_user_experience(user, total_points, module=module)
+    if questions_answered == total_questions:
         UserCompletedModules.objects.get_or_create(user=user, module=module)
         unlock_next_module(user, module)
 
-    return Response({"message": "Answers submitted successfully", "points_gained": total_points, "score": score}, status=status.HTTP_200_OK)
+    return Response({
+        "message": "Answers submitted successfully",
+        "points_gained": total_points,
+        "score": score,
+        "total_questions": total_questions  # ✅ added for consistency
+    }, status=status.HTTP_200_OK)
 
 def get_speech_config():
   speech_key = settings.AZURE['SPEECH_KEY']
@@ -283,14 +314,19 @@ def assess_pronunciation(request):
             UserCompletedModules.objects.get_or_create(user=user, module=question.module)
             unlock_next_module(user, question.module)
 
+        score_point = int(pronunciation_result.pronunciation_score / 10)
+
         return Response({
             "recognized_text": result.text,
             "accuracy_score": pronunciation_result.accuracy_score,
             "fluency_score": pronunciation_result.fluency_score,
             "prosody_score": pronunciation_result.prosody_score,
             "pronunciation_score": pronunciation_result.pronunciation_score,
-            "completeness_score": pronunciation_result.completeness_score
+            "completeness_score": pronunciation_result.completeness_score,
+            "score": 1 if score_point > 0 else 0,  # count as correct if got some points
+            "points_earned": score_point,
         }, status=status.HTTP_200_OK)
+
     else:
         error_msg = "Speech recognition failed. Reason: {}".format(result.reason)
         if result.reason == speechsdk.ResultReason.Canceled:
@@ -368,13 +404,15 @@ def update_user_experience(user, points, module=None):
 
   
 def insert_word_pronunciation(user, question, result, text):
-  # Insert User_Word_Pronunciation_Answer record
-  User_Word_Pronunciation_Answer.objects.create(
-      question=question,
-      text=text,
-      user=user,
-      points=int(result)
-  )
+    # Replace .create() with update_or_create()
+    User_Word_Pronunciation_Answer.objects.update_or_create(
+        user=user,
+        question=question,
+        defaults={
+            'text': text,
+            'points': int(result),
+        }
+    )
 
 
 def unlock_next_module(user, current_module):

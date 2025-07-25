@@ -226,6 +226,37 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> postModuleAnswers({
+  required String moduleId,
+  required List<Map<String, dynamic>> answers,
+}) async {
+  try {
+    String? idToken = await getStoredAccessToken();
+    Map<String, String> requestHeader = {
+      "Content-Type": 'application/json',
+      "Authorization": 'Bearer $idToken',
+    };
+
+    var url = Uri.parse('${Constants.baseUrl}/api/modules/$moduleId/answer');
+    var response = await http.post(
+      url,
+      headers: requestHeader,
+      body: jsonEncode({"answers": answers}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      log('❌ Failed to submit answers. Status: ${response.statusCode}');
+      log('Response body: ${response.body}');
+      throw 'Failed to submit answers.';
+    }
+  } catch (e) {
+    log('⚠️ Error in postModuleAnswers: $e');
+    rethrow;
+  }
+}
+
   Future<String?> getStoredAccessToken() async {
     return await _secureStorage.read(key: 'accessToken');
   }

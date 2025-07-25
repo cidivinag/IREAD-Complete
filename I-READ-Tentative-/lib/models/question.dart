@@ -1,4 +1,5 @@
 import 'package:i_read_app/models/choice.dart';
+import 'package:i_read_app/models/answer.dart'; // make sure this exists
 
 class Question {
   String id;
@@ -8,6 +9,8 @@ class Question {
   DateTime createdAt;
   DateTime? updatedAt;
   List<Choice> choices;
+  Answer? answer; // ✅ only used in Word Pro
+  int? points; // from backend, for XP display
 
   Question({
     required this.id,
@@ -17,24 +20,28 @@ class Question {
     required this.createdAt,
     this.updatedAt,
     required this.choices,
+    this.answer, // ✅ new field
   });
 
   factory Question.fromJson(Map<String, dynamic> json) {
     return Question(
-      id: json['id'] ?? '', // Fallback to an empty string
+      id: json['id'] ?? '',
       text: json['text'] ?? '',
       questionType: json['question_type'] ?? '',
       module: json['module'] ?? '',
       choices: (json['choices'] as List<dynamic>?)
               ?.map((c) => Choice.fromJson(c))
               .toList() ??
-          [], // Fallback to an empty list
+          [],
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at']) 
-          : DateTime.now(), // If null, use the current date-time
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now(),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'])
-          : null, // Handle null for updated_at
+          : null,
+      answer: json['answer'] != null
+          ? Answer.fromJson(json['answer'])
+          : null, // ✅ only populated for Word Pro
     );
   }
 
@@ -46,7 +53,8 @@ class Question {
       'module': module,
       'choices': choices.map((c) => c.toJson()).toList(),
       'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(), // updated_at can be null
+      'updated_at': updatedAt?.toIso8601String(),
+      if (answer != null) 'answer': answer!.toJson(), // ✅ optional
     };
   }
 }
