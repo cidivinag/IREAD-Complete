@@ -146,12 +146,21 @@ def get_question(request, question_id: str):
 def post_module_answers(request, module_id: str):
     user = request.user
     module = get_object_or_404(Modules, id=module_id)
+
     if not is_module_unlocked(user, module):
         return Response({"error": "This module is locked"}, status=status.HTTP_403_FORBIDDEN)
+
+    # 🧨 STEP 1: Delete old answers for this module before scoring
+    User_Module_Answer.objects.filter(user=user, question__module=module).delete()
+    if module.category == 'Word Pronunciation':
+        User_Word_Pronunciation_Answer.objects.filter(user=user, question__module=module).delete()
+
+    # Continue as normal
     data = request.data.get("answers", [])
     total_points = 0
     score = 0
     questions_answered = 0
+
     for answer in data:
         question_id = answer.get("question_id")
         user_answer = answer.get("answer")
@@ -186,10 +195,11 @@ def post_module_answers(request, module_id: str):
 
         questions_answered += 1
 
-    update_user_experience(user, total_points)
+    update_user_experience(user, total_points, module=module)  
     if questions_answered == module.questions_per_module.count():
         UserCompletedModules.objects.get_or_create(user=user, module=module)
         unlock_next_module(user, module)
+
     return Response({"message": "Answers submitted successfully", "points_gained": total_points, "score": score}, status=status.HTTP_200_OK)
 
 def get_speech_config():
@@ -328,10 +338,34 @@ def save_user_answer(user, question, answer_text):
   question.user_question_answers.create(user=user, text=answer_text)
 
 
-def update_user_experience(user, points):
-  user_experience = UserExperience.objects.get_or_create(user=user)[0]
-  user_experience.total_points += points
-  user_experience.save()
+def update_user_experience(user, points, module=None):
+    user_experience, _ = UserExperience.objects.get_or_create(user=user)
+
+    if module:
+        # Remove old XP earned from this same module
+        if module.category == 'Word Pronunciation':
+            old_points = User_Word_Pronunciation_Answer.objects.filter(
+                user=user, question__module=module
+            ).aggregate(total=Sum('points'))['total'] or 0
+        elif module.category == 'Sentence Composition':
+            old_points = 0
+            user_answers = User_Module_Answer.objects.filter(user=user, question__module=module)
+            for user_answer in user_answers:
+                correct_answers = Answer.objects.filter(question=user_answer.question)
+                for correct_answer in correct_answers:
+                    if are_texts_similar(correct_answer.text, user_answer.text):
+                        old_points += correct_answer.points
+        else:
+            old_points = User_Module_Answer.objects.filter(user=user, question__module=module).filter(
+                question__answer__text=F('text')
+            ).aggregate(total=Sum('question__answer__points'))['total'] or 0
+
+        user_experience.total_points -= old_points
+
+    user_experience.total_points += points
+    user_experience.total_points = max(user_experience.total_points, 0)  # prevent negative XP
+    user_experience.save()
+
   
 def insert_word_pronunciation(user, question, result, text):
   # Insert User_Word_Pronunciation_Answer record
