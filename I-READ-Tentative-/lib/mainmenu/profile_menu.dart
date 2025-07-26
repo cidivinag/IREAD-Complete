@@ -206,27 +206,38 @@ class _ProfileMenuState extends State<ProfileMenu> {
       color: const Color.fromARGB(255, 249, 222, 194),
       margin: const EdgeInsets.all(8.0),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.montserrat(
-                color: const Color(0xFF8B4513),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              value,
-              style: GoogleFonts.montserrat(
-                color: const Color(0xFF8B4513),
-                fontSize: 20,
-              ),
-            ),
-          ],
+  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Expanded(
+        child: Text(
+          title,
+          style: GoogleFonts.montserrat(
+            color: const Color(0xFF8B4513),
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF8B4513), // same as background
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          value,
+          style: GoogleFonts.montserrat(
+            color: const Color(0xFFF5E8C7),
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    ],
+  ),
+),
+
     );
   }
 
