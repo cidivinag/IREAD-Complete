@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:i_read_app/services/api.dart';
+import 'package:i_read_app/models/module.dart'; // ✅ Needed to access `Module`
 
 class VocabularySkillsLevels extends StatefulWidget {
   const VocabularySkillsLevels({super.key});
@@ -12,27 +13,61 @@ class VocabularySkillsLevels extends StatefulWidget {
 class _VocabularySkillsLevelsState extends State<VocabularySkillsLevels> {
   ApiService apiService = ApiService();
 
+  Map<String, bool> levelLocks = {
+    'Easy': false,
+    'Medium': true,
+    'Hard': true,
+  };
+  bool isLoading = true;
+
   @override
   void initState() {
     super.initState();
+    _loadModuleLocks();
+  }
+
+  Future<void> _loadModuleLocks() async {
+    try {
+      List<Module> modules = await apiService.getModules();
+      Map<String, bool> locks = {
+        'Easy': false,
+        'Medium': true,
+        'Hard': true,
+      };
+
+      for (var module in modules) {
+        if (module.category == 'Vocabulary Skills') {
+          locks[module.difficulty] = module.isLocked;
+        }
+      }
+
+      print("LOCKS FOR VOCAB SKILLS: $locks");
+
+      setState(() {
+        levelLocks = locks;
+        isLoading = false;
+      });
+    } catch (e) {
+      print("Failed to load vocab skills locks: $e");
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width;
-
     return WillPopScope(
       onWillPop: () async {
         Navigator.pushNamed(context, '/modules_menu');
-        return false; // Prevent default back behavior
+        return false;
       },
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: const Color(0xFFF5E8C7), // Manila paper
-          elevation: 0, // Flat look
+          backgroundColor: const Color(0xFFF5E8C7),
+          elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back,
-                color: Color(0xFF8B4513)), // Brown back arrow
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF8B4513)),
             onPressed: () {
               Navigator.pushNamed(context, '/modules_menu');
             },
@@ -42,7 +77,7 @@ class _VocabularySkillsLevelsState extends State<VocabularySkillsLevels> {
             style: GoogleFonts.montserrat(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: const Color(0xFF8B4513), // Brown text
+              color: const Color(0xFF8B4513),
             ),
           ),
           centerTitle: true,
@@ -50,7 +85,7 @@ class _VocabularySkillsLevelsState extends State<VocabularySkillsLevels> {
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          color: const Color(0xFFF5E8C7), // Manila paper background
+          color: const Color(0xFFF5E8C7),
           padding: const EdgeInsets.all(20.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -69,27 +104,43 @@ class _VocabularySkillsLevelsState extends State<VocabularySkillsLevels> {
 
   Widget _buildLevelButton(BuildContext context, String level) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 20.0), // Horizontal padding for alignment
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: ElevatedButton(
-        onPressed: () {
-          switch (level) {
-            case 'Easy':
-              Navigator.pushNamed(context, '/vocabskills_easy');
-              break;
-            case 'Medium':
-              Navigator.pushNamed(context, '/vocabskills_medium');
-              break;
-            case 'Hard':
-              Navigator.pushNamed(context, '/vocabskills_hard');
-              break;
-          }
-        },
+        onPressed: levelLocks[level] == true
+            ? () {
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text("Module Locked"),
+                    content: const Text("Complete easier modules in this category first."),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("OK"),
+                      )
+                    ],
+                  ),
+                );
+              }
+            : () {
+                switch (level) {
+                  case 'Easy':
+                    Navigator.pushNamed(context, '/vocabskills_easy');
+                    break;
+                  case 'Medium':
+                    Navigator.pushNamed(context, '/vocabskills_medium');
+                    break;
+                  case 'Hard':
+                    Navigator.pushNamed(context, '/vocabskills_hard');
+                    break;
+                }
+              },
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF8B4513), // Brown for all buttons
+          backgroundColor: levelLocks[level] == true
+              ? Colors.grey
+              : const Color(0xFF8B4513),
           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 25),
-          minimumSize:
-              const Size(400, 60), // Matches ReadingComprehensionLevels
+          minimumSize: const Size(400, 60),
         ),
         child: Text(
           level,

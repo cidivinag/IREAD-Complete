@@ -118,6 +118,7 @@ def get_leaderboard(request):
     return Response({'leaderboard': leaderboard_data})
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated]) 
 def get_modules(request):
     modules = Modules.objects.prefetch_related('module_materials').all()
     serializer = ModulesSerializer(modules, many=True, context={'request': request})
