@@ -454,3 +454,22 @@ def get_modules_with_lock_status(user):
           "isLock": not is_module_unlocked(user, module),
       })
   return Response(module_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_category_progress(request):
+    user = request.user
+    categories = Modules.objects.values_list('category', flat=True).distinct()
+    response_data = {}
+
+    for category in categories:
+        modules = Modules.objects.filter(category=category)
+        total = modules.count()
+        completed = UserCompletedModules.objects.filter(user=user, module__in=modules).count()
+
+        response_data[category] = {
+            "total": total,
+            "completed": completed
+        }
+
+    return Response(response_data, status=status.HTTP_200_OK)

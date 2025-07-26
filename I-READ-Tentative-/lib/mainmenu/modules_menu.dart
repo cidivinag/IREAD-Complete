@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// import 'package:i_read_app/services/firestore_module_service.dart'; // ❌ Firebase service
 import 'package:i_read_app/models/module.dart';
-import 'package:i_read_app/services/api.dart'; // ✅ Django API service
+import 'package:i_read_app/services/api.dart';
+import 'package:i_read_app/services/django_user_profile_service.dart';
+import 'package:i_read_app/services/storage.dart';
 
 class ModulesMenu extends StatefulWidget {
-  const ModulesMenu(
-      {super.key, required Null Function(dynamic modules) onModulesUpdated});
+  const ModulesMenu({
+    super.key,
+    required Null Function(dynamic modules) onModulesUpdated,
+  });
 
   @override
   _ModulesMenuState createState() => _ModulesMenuState();
@@ -15,9 +18,16 @@ class ModulesMenu extends StatefulWidget {
 class _ModulesMenuState extends State<ModulesMenu> {
   List<Map<String, dynamic>> modules = [];
   bool isLoading = true;
+  int completedModulesCount = 0;
+  int totalModulesCount = 0;
 
-  // final FirestoreModuleService firestoreModuleService = FirestoreModuleService(); // ❌ Firebase
-  final ApiService apiService = ApiService(); // ✅ Django-based
+  final ApiService apiService = ApiService();
+
+  String _getStatus() {
+    if (completedModulesCount == 0) return 'NOT FINISHED';
+    if (completedModulesCount == totalModulesCount) return 'COMPLETED';
+    return 'IN PROGRESS';
+  }
 
   @override
   void initState() {
@@ -26,63 +36,40 @@ class _ModulesMenuState extends State<ModulesMenu> {
   }
 
   Future<void> _loadModules() async {
-    try {
-      // List<Module> storedModules = await firestoreModuleService.getModules(); // ❌ Firebase
-      List<Module> storedModules = await apiService.getModules(); // ✅ Django
+  try {
+    Map<String, dynamic> progressData = await apiService.getCategoryProgress();
 
-      Map<String, Map<String, dynamic>> moduleMap = {};
+    List<Map<String, dynamic>> categoryList = [];
+    int totalCount = 0;
+    int completedCount = 0;
 
-      for (var module in storedModules) {
-        if (!moduleMap.containsKey(module.category)) {
-          moduleMap[module.category] = {
-            'category': module.category,
-            'completed': 0,
-            'total': 0,
-          };
-        }
-        moduleMap[module.category]!['total'] += 1;
-        if (module.completed == 1) {
-          moduleMap[module.category]!['completed'] += 1;
-        }
-      }
+    progressData.forEach((category, data) {
+      final int total = data['total'];
+      final int completed = data['completed'];
 
-      setState(() {
-        modules = moduleMap.values.toList();
-        isLoading = false;
+      categoryList.add({
+        'category': category,
+        'total': total,
+        'completed': completed,
       });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load modules: $e')),
-      );
-    }
-  }
 
-  int get totalModules {
-    int sum = 0;
-    for (var module in modules) {
-      final total = module['total'];
-      sum += (total is int) ? total : (total as num).toInt();
-    }
-    return sum;
-  }
+      totalCount += total;
+      completedCount += completed;
+    });
 
-  int get completedModules {
-    int sum = 0;
-    for (var module in modules) {
-      final completed = module['completed'];
-      sum += (completed is int) ? completed : (completed as num).toInt();
-    }
-    return sum;
+    setState(() {
+      modules = categoryList;
+      totalModulesCount = totalCount;
+      completedModulesCount = completedCount;
+      isLoading = false;
+    });
+  } catch (e) {
+    setState(() => isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to load module progress: $e')),
+    );
   }
-
-  String get overallStatus {
-    if (completedModules == 0) return 'NOT FINISHED';
-    if (completedModules == totalModules) return 'COMPLETED';
-    return 'IN PROGRESS';
-  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -109,10 +96,13 @@ class _ModulesMenuState extends State<ModulesMenu> {
       body: Container(
         color: const Color(0xFFF5E8C7),
         padding: EdgeInsets.symmetric(
-            horizontal: width * 0.05, vertical: height * 0.02),
+          horizontal: width * 0.05,
+          vertical: height * 0.02,
+        ),
         child: isLoading
             ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF8B4513)))
+                child: CircularProgressIndicator(color: Color(0xFF8B4513)),
+              )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -131,21 +121,22 @@ class _ModulesMenuState extends State<ModulesMenu> {
                         ),
                         const SizedBox(height: 10),
                         LinearProgressIndicator(
-                          value: totalModules > 0
-                              ? completedModules / totalModules
+                          value: totalModulesCount > 0
+                              ? completedModulesCount / totalModulesCount
                               : 0,
                           backgroundColor: Colors.grey[300],
                           color: const Color(0xFF8B4513),
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          '$completedModules / $totalModules completed',
+                          '$completedModulesCount / $totalModulesCount completed',
                           style: GoogleFonts.montserrat(
-                              color: const Color(0xFF8B4513)),
+                            color: const Color(0xFF8B4513),
+                          ),
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          'Status: $overallStatus',
+                          'Status: ${_getStatus()}',
                           style: GoogleFonts.montserrat(
                             fontSize: 16,
                             color: const Color(0xFF8B4513),
@@ -167,7 +158,8 @@ class _ModulesMenuState extends State<ModulesMenu> {
                           margin: const EdgeInsets.symmetric(vertical: 10),
                           color: const Color.fromARGB(255, 249, 222, 194),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           child: ListTile(
                             title: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,24 +182,32 @@ class _ModulesMenuState extends State<ModulesMenu> {
                                 Text(
                                   '$completed / $total completed',
                                   style: GoogleFonts.montserrat(
-                                      color: const Color(0xFF8B4513)),
+                                    color: const Color(0xFF8B4513),
+                                  ),
                                 ),
                               ],
                             ),
                             onTap: () {
                               if (currentModule == 'Reading Comprehension') {
                                 Navigator.pushNamed(
-                                    context, '/reading_comprehension_levels');
-                              } else if (currentModule ==
-                                  'Word Pronunciation') {
-                                Navigator.pushNamed(context, '/wordpro_levels');
-                              } else if (currentModule ==
-                                  'Sentence Composition') {
+                                  context,
+                                  '/reading_comprehension_levels',
+                                );
+                              } else if (currentModule == 'Word Pronunciation') {
                                 Navigator.pushNamed(
-                                    context, '/sentcomp_levels');
+                                  context,
+                                  '/wordpro_levels',
+                                );
+                              } else if (currentModule == 'Sentence Composition') {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/sentcomp_levels',
+                                );
                               } else if (currentModule == 'Vocabulary Skills') {
                                 Navigator.pushNamed(
-                                    context, '/vocabskills_levels');
+                                  context,
+                                  '/vocabskills_levels',
+                                );
                               }
                             },
                           ),

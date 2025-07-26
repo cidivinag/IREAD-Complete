@@ -24,6 +24,30 @@ class ApiService {
   //   }
   // }
 
+Future<Map<String, dynamic>> getCategoryProgress() async {
+  try {
+    String? idToken = await getStoredAccessToken();
+    Map<String, String> requestHeader = {
+      "Content-Type": 'application/json',
+      "Authorization": 'Bearer $idToken',
+    };
+
+    var url = Uri.parse('${Constants.baseUrl}/api/get_category_progress/');
+    var response = await http.get(url, headers: requestHeader);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return Map<String, dynamic>.from(data);
+    } else {
+      log('❌ Failed to get category progress. Status: ${response.statusCode}');
+      throw 'Failed to fetch category progress.';
+    }
+  } catch (e) {
+    log('⚠️ Error in getCategoryProgress: $e');
+    rethrow;
+  }
+}
+
   Future<AccessToken?> postGenerateToken(String email, String password) async {
     try {
       print("🔐 Attempting token request...");
@@ -264,4 +288,8 @@ class ApiService {
   Future<void> clearAccessToken() async {
     await _secureStorage.delete(key: 'accessToken');
   }
+
+  
 }
+
+
