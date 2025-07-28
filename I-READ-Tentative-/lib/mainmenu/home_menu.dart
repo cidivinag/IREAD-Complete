@@ -73,7 +73,7 @@ class _HomeMenuState extends State<HomeMenu>
       questionsPerModule: [],
       materials: [],
       isLocked: false,
-      completed: 0,
+      completed: false,
       fileUrl: '',
     );
   }

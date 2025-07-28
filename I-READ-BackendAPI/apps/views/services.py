@@ -496,28 +496,43 @@ def question_and_answer_form_service(request, slug):
                 points = request.POST.get(f"points_{idx}")
                 question_type = request.POST.get(f"question_type_{idx}")
 
+            # ✅ Check if question text is present and meaningful
+            if not question_text or not question_text.strip():
+                return JsonResponse({
+                    "message": f"Question {idx+1} is missing text. Please make sure all questions have text.",
+                    "type": "error"
+                }, status=400)
+
+            # ✅ Optional: validate points field
+            if not points or not points.strip().isdigit():
+                return JsonResponse({
+                    "message": f"Invalid or missing points for question {idx+1}.",
+                    "type": "error"
+                }, status=400)
+
             question = Question.objects.create(
                 module=module, 
-                text=question_text, 
+                text=question_text.strip(),  # ✅ trim whitespace
                 question_type=question_type
             )
 
             if question_type == "multiple_choice":
                 if idx == 0:
-                    correct_choice_text = request.POST.get("answer").strip()
+                    correct_choice_text = request.POST.get("answer", "").strip()
                 else:
-                    correct_choice_text = request.POST.get(f"answer_{idx}_0").strip()
+                    correct_choice_text = request.POST.get(f"answer_{idx}_0", "").strip()
 
                 choice_keys = [key for key in request.POST.keys() if key.startswith(f"choice_{idx}_")]
 
                 for key in choice_keys:
-                    choice_text = request.POST.get(key).strip()
+                    choice_text = request.POST.get(key, "").strip()
                     is_correct = choice_text == correct_choice_text
                     Choice.objects.create(
                         question=question, 
                         text=choice_text, 
                         is_correct=is_correct
                     )
+
                 Answer.objects.create(
                     question=question, 
                     text=correct_choice_text, 
@@ -533,6 +548,7 @@ def question_and_answer_form_service(request, slug):
         response = JsonResponse({"message": "Successfully created quizzes"})
         response["HX-Redirect"] = f"/module/{slug}"
         return response
+
 
 def publish_module_service(request: HttpRequest, slug: str):
     try:

@@ -22,11 +22,11 @@ class FirestoreModuleService {
         slug: data['slug'] ?? '',
         createdBy: data['created_by_id'] ?? '',
         createdAt: DateTime.tryParse(data['created_at'] ?? '') ?? DateTime.now(),
-        updatedAt: data['updated_at'] != null && data['updated_at'] != '' ? DateTime.tryParse(data['updated_at']) : null,
+        updatedAt: data['updated_at'] != null && data['updated_at'] != '' ? DateTime.tryParse(data['updated_at'] ?? '') : null,
         questionsPerModule: [], // To be filled if you want to fetch questions here
         materials: [], // To be filled if you want to fetch materials here
         isLocked: false, // You can set logic here if needed
-        completed: 0, // Set based on user progress if needed
+        completed: , // Set based on user progress if needed
         fileUrl: data['file_url'] ?? '',
       );
     }).toList();
