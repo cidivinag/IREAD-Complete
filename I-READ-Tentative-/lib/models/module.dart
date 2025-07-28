@@ -14,7 +14,7 @@ class Module {
   List<Question> questionsPerModule;
   List<ModuleMaterial> materials;
   bool isLocked;
-  bool completed;
+  int completed = 0;
   String fileUrl;
   Module({
     required this.id,
@@ -49,7 +49,7 @@ class Module {
               .toList() ??
           [],
       isLocked: json['isLock'] ?? false,
-      completed: json['completed'] ?? false,
+      completed: json['progress'] ?? 0,
       fileUrl: json['file_url'] ?? '',
       materials: (json['module_materials'] as List<dynamic>?)
               ?.map((m) => ModuleMaterial.fromJson(m))

@@ -43,7 +43,7 @@ class ModuleContentPage extends StatelessWidget {
       List<Module> modules = await apiService.getModules();
       Module updatedModule = modules.firstWhere((m) => m.id == moduleId);
       log('Module ${updatedModule.title} completion status: ${updatedModule.completed}');
-      return updatedModule.completed;
+      return updatedModule.completed > 0;
     } catch (e) {
       log('Error checking quiz completion: $e');
       return false; // Default to false if check fails
