@@ -488,17 +488,17 @@ def question_and_answer_form_service(request, slug):
 
         for idx in range(question_count):
             if idx == 0:
-                question_text = request.POST.get("question")
+                question = request.POST.get("question")
                 points = request.POST.get("points")
                 question_type = request.POST.get("question_type")
             else:
-                question_text = request.POST.get(f"question_{idx}")
+                question = request.POST.get(f"question_{idx}")
                 points = request.POST.get(f"points_{idx}")
                 question_type = request.POST.get(f"question_type_{idx}")
 
             question = Question.objects.create(
                 module=module, 
-                text=question_text, 
+                text=question, 
                 question_type=question_type
             )
 
