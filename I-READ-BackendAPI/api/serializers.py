@@ -48,14 +48,15 @@ class ModulesSerializer(serializers.ModelSerializer):
 
     def get_progress(self, obj):
         user = self.context['request'].user
-        category = obj.category
         
-        completed_count = UserCompletedModules.objects.filter(
+        # Check if this specific module is completed by the user
+        is_completed = UserCompletedModules.objects.filter(
             user=user,
-            module__category=category
-        ).values('module__difficulty').distinct().count()
+            module=obj
+        ).exists()
         
-        return completed_count
+        # Return 1 if completed, 0 otherwise
+        return 1 if is_completed else 0
 
     def get_isLock(self, obj):
         user = self.context['request'].user

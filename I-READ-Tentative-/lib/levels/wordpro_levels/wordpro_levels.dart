@@ -29,26 +29,72 @@ class _WordPronunciationLevelsState extends State<WordPronunciationLevels> {
 
   Future<void> _loadModuleLocks() async {
     try {
-      List<Module> modules = await apiService.getModules();
+      List<Module> allModules = await apiService.getModules();
+      
+      // Filter modules for Word Pronunciation category only
+      final wordProModules = allModules.where((m) => m.category == 'Word Pronunciation').toList();
+      
+      // Initialize locks - all locked by default except Easy
       Map<String, bool> locks = {
-        'Easy': false,
-        'Medium': true,
-        'Hard': true,
+        'Easy': false,  // Easy is always unlocked
+        'Medium': true, // Locked by default
+        'Hard': true,   // Locked by default
       };
 
-      // For each module in this category, update the lock status
-      // If any module in the difficulty is locked, the entire difficulty remains locked
-      for (var module in modules) {
-        if (module.category == 'Word Pronunciation') {
-          // Use OR operator to keep the difficulty locked if any module is locked
-          locks[module.difficulty] = locks[module.difficulty]! || module.isLocked;
+      // Count total and completed modules for each difficulty level
+      final levelCounts = {
+        'Easy': {'total': 0, 'completed': 0},
+        'Medium': {'total': 0, 'completed': 0},
+        'Hard': {'total': 0, 'completed': 0},
+      };
+
+      // Calculate totals and completed counts
+      for (var module in wordProModules) {
+        final level = module.difficulty;
+        if (levelCounts.containsKey(level)) {
+          levelCounts[level]!['total'] = (levelCounts[level]!['total'] ?? 0) + 1;
+          
+          // The backend sets progress to 1 when all questions are answered correctly
+          // We consider a module completed if progress is 1 (100%)
+          bool isCompleted = module.completed == 1;
+                              
+          if (isCompleted) {
+            levelCounts[level]!['completed'] = (levelCounts[level]!['completed'] ?? 0) + 1;
+          }
+          
+          print('Module: ${module.title}, Level: $level, Progress: ${module.completed}, Completed: $isCompleted');
         }
       }
-      
-      // Ensure Easy is always unlocked
-      locks['Easy'] = false;
 
-      print("LOCKS FOR WORD PRO: $locks");
+      // 1. Handle Easy level (always unlocked)
+      locks['Easy'] = false;
+      
+      // 2. Handle Medium level - unlock only if ALL Easy modules are completed
+      if (levelCounts['Easy']!['total']! > 0) {
+        // Check if all Easy modules are completed
+        final allEasyCompleted = levelCounts['Easy']!['completed'] == levelCounts['Easy']!['total'];
+        locks['Medium'] = !allEasyCompleted; // Lock if not all Easy are completed
+      } else {
+        // If no Easy modules exist, keep Medium locked
+        locks['Medium'] = true;
+      }
+
+      // 3. Handle Hard level - unlock only if ALL Medium modules are completed AND Medium is already unlocked
+      if (levelCounts['Medium']!['total']! > 0) {
+        // Check if all Medium modules are completed
+        final allMediumCompleted = levelCounts['Medium']!['completed'] == levelCounts['Medium']!['total'];
+        // Lock if not all Medium are completed OR if Medium is still locked
+        locks['Hard'] = !allMediumCompleted || locks['Medium']!;
+      } else {
+        // If no Medium modules exist, keep Hard locked
+        locks['Hard'] = true;
+      }
+
+      print("Word Pronunciation Level Locks: $locks");
+      print("Level Counts: $levelCounts");
+      print('Total Easy modules: ${levelCounts['Easy']!['total']}, Completed: ${levelCounts['Easy']!['completed']}');
+      print('Total Medium modules: ${levelCounts['Medium']!['total']}, Completed: ${levelCounts['Medium']!['completed']}');
+      print('Total Hard modules: ${levelCounts['Hard']!['total']}, Completed: ${levelCounts['Hard']!['completed']}');
 
       setState(() {
         levelLocks = locks;
