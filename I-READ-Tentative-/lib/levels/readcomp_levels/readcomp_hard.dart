@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:i_read_app/models/module.dart';
 import 'package:i_read_app/services/api.dart';
-
 import '../../pages/modulecontent_page.dart';
 
 class ReadCompHard extends StatefulWidget {
@@ -33,24 +32,22 @@ class _ReadCompHardState extends State<ReadCompHard> {
 
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width;
-
     return WillPopScope(
       onWillPop: () async {
         Navigator.pushNamed(context, '/reading_comprehension_levels');
-        return false; // Prevent default back behavior
+        return false;
       },
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: const Color(0xFFF5E8C7), // Manila paper background
-          elevation: 0, // Flat look
+          backgroundColor: const Color(0xFFF5E8C7),
+          elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Color(0xFF8B4513)),
             onPressed: () {
               Navigator.pushNamed(context, '/reading_comprehension_levels');
             },
           ),
-          titleSpacing: 0, // Minimize space between back arrow and title
+          titleSpacing: 0,
           title: Text(
             'Hard Level',
             style: GoogleFonts.montserrat(
@@ -63,7 +60,7 @@ class _ReadCompHardState extends State<ReadCompHard> {
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          color: const Color(0xFFF5E8C7), // Manila paper background
+          color: const Color(0xFFF5E8C7),
           padding: const EdgeInsets.all(20.0),
           child: FutureBuilder<List<Module>>(
             future: _hardModulesFuture,
@@ -71,7 +68,7 @@ class _ReadCompHardState extends State<ReadCompHard> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
                   child: CircularProgressIndicator(
-                    color: Color(0xFF8B4513), // Brown
+                    color: Color(0xFF8B4513),
                   ),
                 );
               } else if (snapshot.hasError) {
@@ -79,7 +76,7 @@ class _ReadCompHardState extends State<ReadCompHard> {
                   child: Text(
                     'Error loading modules: ${snapshot.error}',
                     style: GoogleFonts.montserrat(
-                      color: const Color(0xFF8B4513), // Brown
+                      color: const Color(0xFF8B4513),
                     ),
                   ),
                 );
@@ -88,7 +85,7 @@ class _ReadCompHardState extends State<ReadCompHard> {
                   child: Text(
                     'No Hard modules available',
                     style: GoogleFonts.montserrat(
-                      color: const Color(0xFF8B4513), // Brown
+                      color: const Color(0xFF8B4513),
                     ),
                   ),
                 );
@@ -113,7 +110,7 @@ class _ReadCompHardState extends State<ReadCompHard> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
       child: SizedBox(
-        width: 400, // Increased width
+        width: 400,
         child: ElevatedButton(
           onPressed: () {
             Navigator.push(
@@ -127,7 +124,7 @@ class _ReadCompHardState extends State<ReadCompHard> {
             );
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF8B4513), // Brown
+            backgroundColor: const Color(0xFF8B4513),
             padding: const EdgeInsets.symmetric(vertical: 25),
           ),
           child: Text(
@@ -135,7 +132,7 @@ class _ReadCompHardState extends State<ReadCompHard> {
             style: GoogleFonts.montserrat(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Colors.white, // White text
+              color: Colors.white,
             ),
             textAlign: TextAlign.center,
           ),

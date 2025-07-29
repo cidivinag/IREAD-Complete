@@ -121,20 +121,66 @@ class _HomeMenuState extends State<HomeMenu>
 
   Future<List<Map<String, dynamic>>> _getRandomModules() async {
     var rng = Random();
-    List<Map<String, dynamic>> randomModules = [];
+    List<Map<String, dynamic>> categoryList = [];
+    
+    try {
+      Map<String, dynamic> progressData = await apiService.getCategoryProgress();
+      
+      progressData.forEach((category, data) {
+        final int total = data['total'] ?? 0;
+        final int completed = data['completed'] ?? 0;
+        
+        String status;
+        if (completed == 0) {
+          status = 'NOT STARTED';
+        } else if (completed == total) {
+          status = 'COMPLETED';
+        } else {
+          status = 'IN PROGRESS';
+        }
 
-    if (allModules.isNotEmpty) {
-      allModules.shuffle(rng);
-      randomModules = allModules
-          .take(3)
-          .map((module) => {
-                'title': module.category,
-                'status': module.completed == 3 ? 'COMPLETED' : 'NOT FINISHED',
-              })
-          .toList();
+        categoryList.add({
+          'title': category,
+          'status': status,
+          'completed': completed,
+          'total': total,
+        });
+      });
+      
+      categoryList.shuffle(rng);
+      return categoryList.take(3).toList();
+      
+    } catch (e) {
+      if (allModules.isNotEmpty) {
+        Set<String> categories = allModules.map((m) => m.category).toSet();
+        
+        for (var category in categories) {
+          var modulesInCategory = allModules.where((m) => m.category == category).toList();
+          int total = modulesInCategory.length;
+          int completed = modulesInCategory.where((m) => m.completed == 1).length;
+          
+          String status;
+          if (completed == 0) {
+            status = 'NOT STARTED';
+          } else if (completed == total) {
+            status = 'COMPLETED';
+          } else {
+            status = 'IN PROGRESS';
+          }
+
+          categoryList.add({
+            'title': category,
+            'status': status,
+            'completed': completed,
+            'total': total,
+          });
+        }
+        
+        categoryList.shuffle(rng);
+        return categoryList.take(3).toList();
+      }
+      return [];
     }
-
-    return randomModules;
   }
 
   void _navigateToQuiz(Map<String, dynamic> module) {
@@ -327,11 +373,24 @@ class _HomeMenuState extends State<HomeMenu>
                                             ),
                                             const SizedBox(height: 5),
                                             Text(
+                                              '${module['completed']}/${module['total']} modules',
+                                              style: GoogleFonts.montserrat(
+                                                fontSize: 14,
+                                                color: const Color(0xFF8B4513),
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
                                               'Status: ${module['status']}',
                                               style: GoogleFonts.montserrat(
                                                 fontSize: 14,
-                                                color: const Color(
-                                                    0xFF8B4513), // Brown
+                                                color: module['status'] == 'COMPLETED' 
+                                                  ? Colors.green[700] 
+                                                  : module['status'] == 'IN PROGRESS'
+                                                    ? Colors.orange[700]
+                                                    : const Color(0xFF8B4513),
+                                                fontWeight: FontWeight.w500,
                                               ),
                                             ),
                                           ],
