@@ -45,11 +45,17 @@ class _ReadingComprehensionLevelsState
         'Hard': true,
       };
 
+      // For each module in this category, update the lock status
+      // If any module in the difficulty is locked, the entire difficulty remains locked
       for (var module in modules) {
         if (module.category == 'Reading Comprehension') {
-          locks[module.difficulty] = module.isLocked;
+          // Use OR operator to keep the difficulty locked if any module is locked
+          locks[module.difficulty] = locks[module.difficulty]! || module.isLocked;
         }
       }
+      
+      // Ensure Easy is always unlocked
+      locks['Easy'] = false;
 
       print("LOCKS FOR READING COMP: $locks");
 

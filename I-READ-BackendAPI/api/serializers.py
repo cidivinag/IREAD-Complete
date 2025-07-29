@@ -88,13 +88,36 @@ class UserSerializer(serializers.ModelSerializer):
 
 # Define this function if not already present
 def is_module_unlocked(user, module):
+    # Easy modules are always unlocked
     if module.difficulty == "Easy":
         return True
 
+    # Get the previous difficulty level
     previous_level = get_previous_difficulty(module.difficulty)
-    return UserCompletedModules.objects.filter(
-        user=user, module__difficulty=previous_level, module__category=module.category
-    ).exists()
+    if not previous_level:
+        return False
+
+    # Get all published modules in the same category and previous difficulty level
+    from apps.models import Modules  # Import here to avoid circular import
+    
+    previous_modules = list(Modules.objects.filter(
+        difficulty=previous_level,
+        category=module.category,
+        is_published=True
+    ).values_list('id', flat=True))
+
+    # If there are no previous modules, don't unlock (this is a safety check)
+    if not previous_modules:
+        return False
+
+    # Get all completed modules by the user in the previous level
+    completed_modules = set(UserCompletedModules.objects.filter(
+        user=user,
+        module_id__in=previous_modules
+    ).values_list('module_id', flat=True))
+
+    # Only unlock if ALL previous-level modules in this category are completed
+    return len(completed_modules) == len(previous_modules) and len(previous_modules) > 0
 
 def get_previous_difficulty(current_difficulty):
     levels = ["Easy", "Medium", "Hard"]
