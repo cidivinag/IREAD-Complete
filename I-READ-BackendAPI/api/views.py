@@ -349,13 +349,43 @@ def assess_pronunciation(request):
 
 
 def is_module_unlocked(user: Users, module: Modules):
-  if module.difficulty == "Easy":
-      return True
+    # Easy modules are always unlocked
+    if module.difficulty == "Easy":
+        return True
 
-  previous_level = get_previous_difficulty(module.difficulty)
-  return UserCompletedModules.objects.filter(
-      user=user, module__difficulty=previous_level, module__category=module.category
-  ).exists()
+    # Get the previous difficulty level
+    previous_level = get_previous_difficulty(module.difficulty)
+    if not previous_level:
+        return False
+
+    # Get all published modules in the same category and previous difficulty level
+    previous_modules = list(Modules.objects.filter(
+        difficulty=previous_level,
+        category=module.category,
+        is_published=True
+    ).values_list('id', flat=True))
+
+    # If there are no previous modules, unlock by default
+    if not previous_modules:
+        return True
+
+    # Get all completed modules by the user in the previous level
+    completed_modules = set(UserCompletedModules.objects.filter(
+        user=user,
+        module_id__in=previous_modules
+    ).values_list('module_id', flat=True))
+
+    # Debug logging
+    print(f"\n🔒 Module Lock Check:")
+    print(f"- Module: {module.title} ({module.difficulty}, {module.category})")
+    print(f"- Previous level: {previous_level}")
+    print(f"- Total modules in previous level: {len(previous_modules)}")
+    print(f"- Completed modules: {len(completed_modules)}")
+    print(f"- Unlocked: {len(completed_modules) == len(previous_modules) and len(previous_modules) > 0}")
+
+    # Only unlock if ALL previous-level modules in this category are completed
+    # and there is at least one module in the previous level
+    return len(completed_modules) == len(previous_modules) and len(previous_modules) > 0
 
 
 def get_previous_difficulty(current_difficulty):
