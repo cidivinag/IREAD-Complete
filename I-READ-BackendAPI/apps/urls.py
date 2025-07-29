@@ -23,6 +23,7 @@ from apps.views.services import (
     question_and_answer_form_service,
     delete_module_service,
     edit_module_service,
+    unpublish_module_service,
     publish_module_service
 )
 
@@ -68,6 +69,11 @@ services_urlpatterns = [
         "module/edit/<str:slug>/",
         edit_module_service,
         name="edit_module_service",
+    ),
+    path(
+        "module/unpublish/<str:slug>/",
+        unpublish_module_service,
+        name="unpublish_module_service",
     ),
     path(
         "module/publish/<str:slug>/",

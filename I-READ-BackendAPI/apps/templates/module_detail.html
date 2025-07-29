@@ -72,6 +72,15 @@
                                     <span>Edit</span>
                                 </a>
                                 {% endif %}
+                                {% if module.is_published %}
+                                <button type="button"
+                                    hx-post="{% url 'unpublish_module_service' slug=module.slug %}"
+                                    hx-confirm="Are you sure you want to unpublish this module?"
+                                    class="flex w-full justify-between px-4 py-2 text-sm text-gray-700"
+                                    role="menuitem" tabindex="-1" id="menu-0-item-3">
+                                    <span>Unpublish</span>
+                                </button>
+                                {% endif %}
                                 <button type="button"
                                         hx-post="{% url 'delete_module_service' slug=module.slug %}"
                                         hx-confirm="Are you sure you want to archive this module?"

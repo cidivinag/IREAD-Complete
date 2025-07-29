@@ -534,6 +534,24 @@ def question_and_answer_form_service(request, slug):
         response["HX-Redirect"] = f"/module/{slug}"
         return response
 
+def unpublish_module_service(request: HttpRequest, slug: str):
+    try:
+        user = request.user
+        teacher = get_object_or_404(Teachers, user=user)
+        module = get_object_or_404(Modules, slug=slug, created_by=teacher)
+        
+        module.is_published = False
+        module.save()
+        
+        response = JsonResponse({"message": "Successfully unpublished module"})
+        response["HX-Redirect"] = f"/module/{slug}"
+        return response
+        
+    except Exception as e:
+        response = JsonResponse({"message": f"Error: {e}", "type": "error"})
+        response["HX-Trigger"] = "showMessage"
+        return response
+
 def publish_module_service(request: HttpRequest, slug: str):
     try:
         user = request.user
