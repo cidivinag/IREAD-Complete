@@ -1,6 +1,5 @@
 
     import 'dart:async';
-    import 'dart:developer';
     import 'package:flutter/material.dart';
     import 'package:speech_to_text/speech_to_text.dart' as stt;
     import 'package:flutter_tts/flutter_tts.dart';
@@ -50,19 +49,110 @@
       Timer? _nextButtonTimer;
 
       int _calculateAccuracy(String expected, String actual) {
+      if (expected.isEmpty || actual.isEmpty) return 0;
       if (expected == actual) return 100;
 
+      expected = expected.toLowerCase().trim();
+      actual = actual.toLowerCase().trim();
+      
       List<String> expectedWords = expected.split(' ');
       List<String> actualWords = actual.split(' ');
 
       int matched = 0;
-      for (int i = 0; i < expectedWords.length; i++) {
-        if (i < actualWords.length && expectedWords[i] == actualWords[i]) {
+      for (int i = 0; i < expectedWords.length && i < actualWords.length; i++) {
+        if (expectedWords[i] == actualWords[i]) {
           matched++;
         }
       }
 
       return ((matched / expectedWords.length) * 100).round();
+    }
+
+    void _onSpeechResult(dynamic result) {
+      setState(() {
+        recognizedText = result.recognizedWords;
+        
+        // Cancel and restart the silence timer on new speech
+        _silenceTimer?.cancel();
+        _silenceTimer = Timer(Duration(seconds: 2), _onSilenceDetected);
+
+        // If this is a final result, process it
+        if (result.finalResult) {
+          _processFinalResult(result.recognizedWords);
+        }
+      });
+    }
+
+    void _onSilenceDetected() {
+      if (!isListening) return;
+      
+      _speech.stop();
+      setState(() {
+        isListening = false;
+        if (recognizedText.isNotEmpty && recognizedText != 'Listening...') {
+          _processFinalResult(recognizedText);
+        } else {
+          feedbackMessage = 'No speech detected. Try again.';
+          feedbackIcon = Icons.error;
+        }
+      });
+    }
+
+    void _onSpeechComplete() {
+      if (!mounted) return;
+      setState(() {
+        isListening = false;
+        if (recognizedText.isNotEmpty && recognizedText != 'Listening...') {
+          _processFinalResult(recognizedText);
+        }
+      });
+    }
+
+    void _processFinalResult(String recognizedText) {
+      if (recognizedText.isEmpty || recognizedText == 'Listening...') {
+        setState(() {
+          feedbackMessage = 'Could not recognize speech. Try again.';
+          feedbackIcon = Icons.error;
+          showNextButton = false;
+        });
+        return;
+      }
+
+      final currentQuestion = questions[currentQuestionIndex];
+      final expectedText = currentQuestion.text.toLowerCase();
+      final accuracy = _calculateAccuracy(expectedText, recognizedText.toLowerCase());
+      
+      final isCorrect = accuracy >= 80; // 80% threshold for correctness
+      
+      setState(() {
+        if (isCorrect) {
+          feedbackMessage = 'Correct! 🎉';
+          feedbackIcon = Icons.check_circle;
+          showNextButton = true;
+          
+          // Auto-proceed to next question after a short delay
+          _nextButtonTimer?.cancel();
+          _nextButtonTimer = Timer(Duration(seconds: 2), () {
+            if (mounted) {
+              _nextQuestion();
+            }
+          });
+        } else {
+          feedbackMessage = 'Try again. Listen carefully to the word.';
+          feedbackIcon = Icons.error;
+          showNextButton = true;
+        }
+      });
+      
+      // Save the answer
+      answers.add(Answer(
+        questionId: currentQuestion.id,
+        answer: recognizedText,
+        correct: isCorrect,
+      ));
+      
+      // Log the answer for debugging
+      debugPrint('Saved answer: ${currentQuestion.text} -> $recognizedText (Correct: $isCorrect, Accuracy: $accuracy%)');
     }
 
 
@@ -99,18 +189,27 @@
       }
 
       Future<void> _speakQuestion() async {
-        if (questions.isNotEmpty) {
+        if (questions.isEmpty) return;
+        
+        setState(() {
+          isSpeaking = true;
+          recognizedText = '';
+          feedbackMessage = 'Listen carefully...';
+          feedbackIcon = Icons.hearing;
+          showNextButton = false;
+        });
+
+        final currentText = questions[currentQuestionIndex].text;
+        final toSpeak = currentText.isNotEmpty
+            ? "Please repeat after me, $currentText"
+            : "Loading question";
+
+        await flutterTts.speak(toSpeak);
+        
+        if (mounted) {
           setState(() {
-            isSpeaking = true;
-            recognizedText = '';
+            isSpeaking = false;
           });
-
-          final currentText = questions[currentQuestionIndex].text;
-          final toSpeak = currentText.isNotEmpty
-              ? "Please repeat after me, $currentText"
-              : "Loading question";
-
-          await flutterTts.speak(toSpeak);
         }
       }
 
@@ -135,7 +234,7 @@
   }
 
 
-    void startListening() async {
+      void startListening() async {
       final permissionStatus = await Permission.microphone.request();
       if (!permissionStatus.isGranted) {
         setState(() {
@@ -145,8 +244,20 @@
       }
 
       bool available = await _speech.initialize(
-        onStatus: (status) => debugPrint('🎙️ Speech status: $status'),
-        onError: (error) => debugPrint('❌ STT error: ${error.errorMsg}'),
+        onStatus: (status) {
+          debugPrint('🎙️ Speech status: $status');
+          if (status == 'done') {
+            _onSpeechComplete();
+          }
+        },
+        onError: (error) {
+          debugPrint('❌ STT error: ${error.errorMsg}');
+          setState(() {
+            isListening = false;
+            feedbackMessage = 'Error: ${error.errorMsg}';
+            feedbackIcon = Icons.error;
+          });
+        },
       );
 
       if (!available) {
@@ -159,139 +270,44 @@
       setState(() {
         isListening = true;
         recognizedText = 'Listening...';
-        feedbackMessage = '';
-        feedbackIcon = Icons.help;
+        feedbackMessage = 'Speak now!';
+        feedbackIcon = Icons.mic;
         showNextButton = false;
+        canProceedToNext = false;
       });
 
-      String expected = questions[currentQuestionIndex].text.trim().toLowerCase();
-
-      _speech.listen(
-        onResult: (result) {
-          String spoken = result.recognizedWords.trim().toLowerCase();
-
-          debugPrint('🗣️ Result: $spoken');
-
-          setState(() {
-            recognizedText = spoken;
-          });
-
-          if (spoken == expected) {
-            debugPrint('✅ Matched early! Stopping STT...');
-            _silenceTimer?.cancel(); // cancel timer here
-            _speech.stop(); // stop only once
-            _onSpeechRecognized(spoken);
-          } else if (result.finalResult) {
-            _onSpeechRecognized(spoken);
-          }
-        },
-        localeId: 'en_US',
-        listenMode: stt.ListenMode.confirmation,
+      // Start listening with partial results
+      await _speech.listen(
+        onResult: _onSpeechResult,
+        listenFor: Duration(seconds: 10),
+        pauseFor: Duration(seconds: 5),
         partialResults: true,
       );
 
+      // Start a timer to handle silence
       _silenceTimer?.cancel();
-      _silenceTimer = Timer(Duration(seconds: 8), () {
-        if (_speech.isListening) {
-          debugPrint('⏱️ Timeout reached — stopping STT.');
-          _speech.stop();
-          setState(() {
-            isListening = false;
-            feedbackMessage = "Didn't catch that. Please try again.";
-            feedbackIcon = Icons.cancel;
-          });
-        }
-      });
+      _silenceTimer = Timer(Duration(seconds: 5), _onSilenceDetected);
     }
 
-
-
-
-Future<void> _onSpeechRecognized(String spoken) async {
-  _silenceTimer?.cancel();
-
-  final question = questions[currentQuestionIndex];
-
-  String expected = question.text.trim().toLowerCase();
-  spoken = spoken.trim().toLowerCase();
-
-  int accuracy = _calculateAccuracy(expected, spoken);
-  bool isCorrect = accuracy >= 80;
-
-  // ✅ Check if this question already has an answer
-  final existingIndex = answers.indexWhere((a) => a.questionId == question.id);
-
-  final newAnswer = Answer(
-    questionId: question.id,
-    answer: spoken,
-    correct: isCorrect,
-  );
-
-  setState(() {
-    isListening = false;
-    recognizedText = spoken;
-    feedbackMessage = 'Your pronunciation is $accuracy% accurate';
-    feedbackIcon = isCorrect ? Icons.check_circle : Icons.cancel;
-    showNextButton = isCorrect;
-
-    // ✅ Replace existing answer if found
-    if (existingIndex != -1) {
-      answers[existingIndex] = newAnswer;
-    } else {
-      answers.add(newAnswer);
-    }
-  });
-}
-
-
-
-      Future<void> _showAssesmentResult(Map<String, dynamic> result) async {
-        showDialog(
-          context: context,
-          builder: (dialogContext) {
-            return AlertDialog(
-              title: Text('Assessment Breakdown'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Recognized Text: ${result['recognized_text']}'),
-                  Text('Accuracy: ${result['accuracy_score']}%'),
-                  Text('Fluency: ${result['fluency_score']}%'),
-                  Text('Pronunciation: ${result['pronunciation_score']}%'),
-                  Text('Completeness: ${result['completeness_score']}%'),
-                  if (result['prosody_score'] != null)
-                    Text('Prosody: ${result['prosody_score']}%'),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    _nextQuestion();
-                  },
-                  child: Text('Close'),
-                ),
-              ],
-            );
-          },
-        );
-      }
+      // Removed duplicate _showCompletionScreen method
 
       Future<void> _nextQuestion() async {
-        if (currentQuestionIndex < questions.length - 1 && canProceedToNext) {
-          setState(() {
-            currentQuestionIndex++;
-            recognizedText = '';
-            feedbackMessage = '';
-            feedbackIcon = Icons.help;
-            showNextButton = false;
-            canProceedToNext = false;
-          });
-          await _speakQuestion();
-        } else {
-          await _showCompletionScreen();
-        }
-      }
+    if (!mounted) return;
+    
+    if (currentQuestionIndex < questions.length - 1) {
+      setState(() {
+        currentQuestionIndex++;
+        recognizedText = '';
+        feedbackMessage = '';
+        feedbackIcon = Icons.help;
+        showNextButton = false;
+        canProceedToNext = false;
+      });
+      await _speakQuestion();
+    } else {
+      await _showCompletionScreen();
+    }
+  }
 
     Future<void> _showCompletionScreen() async {
     try {
@@ -462,9 +478,9 @@ Future<void> _onSpeechRecognized(String spoken) async {
       @override
       void dispose() {
         flutterTts.stop();
+        _speech.cancel();
         _silenceTimer?.cancel();
         _nextButtonTimer?.cancel();
-
         super.dispose();
       }
     }

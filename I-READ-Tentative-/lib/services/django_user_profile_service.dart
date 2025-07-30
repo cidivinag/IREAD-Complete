@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:i_read_app/models/user.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:i_read_app/constant.dart';
 // import 'package:firebase_auth/firebase_auth.dart'; // Commented out Firebase
 
 class DjangoUserProfileService {
-  final String baseUrl =
-      'http://10.0.2.2:8000'; // Replace with your backend URL
+  final String baseUrl = Constants.baseUrl;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   
