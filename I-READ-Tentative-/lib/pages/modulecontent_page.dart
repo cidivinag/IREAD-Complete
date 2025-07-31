@@ -109,7 +109,7 @@ class ModuleContentPage extends StatelessWidget {
 
     return WillPopScope(
       onWillPop: () async {
-        Navigator.pushNamed(context, backRoute);
+        Navigator.pushReplacementNamed(context, backRoute);
         return false;
       },
       child: Scaffold(
@@ -119,7 +119,7 @@ class ModuleContentPage extends StatelessWidget {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Color(0xFF8B4513)),
             onPressed: () {
-              Navigator.pushNamed(context, backRoute);
+              Navigator.pushReplacementNamed(context, backRoute);
             },
           ),
           title: Text(
@@ -202,69 +202,33 @@ class ModuleContentPage extends StatelessWidget {
                       onPressed: () async {
                         bool isCompleted = await _isQuizCompleted(module.id);
                         if (isCompleted) {
-  bool proceed = await _showReattemptConfirmation(context);
-  if (proceed) {
-    if (module.category == 'Word Pronunciation') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => WordProQuiz(
-            moduleTitle: module.title,
-            uniqueIds: [module.id],
-            difficulty: module.difficulty,
-          ),
-        ),
-      ).then((_) {
-        Navigator.pushReplacementNamed(context, '/modules_menu');
-      });
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AppQuiz(
-            module: module,
-            backRoute: backRoute,
-          ),
-        ),
-      ).then((_) {
-        Navigator.pushReplacementNamed(context, '/modules_menu');
-      });
-    }
-  }
-} else {
-  if (module.category == 'Word Pronunciation') {
-    log('Module ID: ${module.id}');
-    log('Module Title: ${module.title}');
-    log('Module Difficulty: ${module.difficulty}');
-    log('Module Category: ${module.category}');
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => WordProQuiz(
-          moduleTitle: module.title,
-          uniqueIds: [module.id],
-          difficulty: module.difficulty,
-        ),
-      ),
-    ).then((_) {
-      Navigator.pushReplacementNamed(context, '/modules_menu');
-    });
-  } else {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AppQuiz(
-          module: module,
-          backRoute: backRoute,
-        ),
-      ),
-    ).then((_) {
-      Navigator.pushReplacementNamed(context, '/modules_menu');
-    });
-  }
-}
-
+                          bool proceed = await _showReattemptConfirmation(context);
+                          if (!proceed) return;
+                        }
+                        if (module.category == 'Word Pronunciation') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => WordProQuiz(
+                                moduleTitle: module.title,
+                                uniqueIds: [module.id],
+                                difficulty: module.difficulty,
+                              ),
+                            ),
+                          ).then((_) {
+                            Navigator.pushReplacementNamed(context, '/modules_menu');
+                          });
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AppQuiz(
+                                module: module,
+                                backRoute: backRoute,
+                              ),
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF8B4513),
@@ -289,3 +253,4 @@ class ModuleContentPage extends StatelessWidget {
     );
   }
 }
+

@@ -12,6 +12,7 @@
     import 'package:i_read_app/services/storage.dart';
 
     import '../mainmenu/modules_menu.dart';
+import '../pages/modulecontent_page.dart';
 
     class WordProQuiz extends StatefulWidget {
   final String moduleTitle;
@@ -153,12 +154,8 @@ class _WordProQuizState extends State<WordProQuiz> {
       showNextButton = true;
 
       if (isCorrect) {
-        feedbackMessage = 'Correct! 🎉';
+        feedbackMessage = 'Correct! ';
         feedbackIcon = Icons.check_circle;
-
-        // Auto-proceed to next question after a short delay
-        _nextButtonTimer?.cancel();
-        _nextButtonTimer = Timer(const Duration(seconds: 1), _nextQuestion);
       } else {
         feedbackMessage = 'Almost! Try again.';
         feedbackIcon = Icons.error;
@@ -189,11 +186,11 @@ class _WordProQuizState extends State<WordProQuiz> {
     await flutterTts.awaitSpeakCompletion(true);
 
     flutterTts.setStartHandler(() {
-      debugPrint("🔊 Speech started");
+      debugPrint(" Speech started");
     });
 
     flutterTts.setCompletionHandler(() {
-      debugPrint("✅ Speech completed");
+      debugPrint(" Speech completed");
       setState(() {
         isSpeaking = false;
         canProceedToNext = true;
@@ -201,7 +198,7 @@ class _WordProQuizState extends State<WordProQuiz> {
     });
 
     flutterTts.setErrorHandler((msg) {
-      debugPrint("❌ TTS Error: $msg");
+      debugPrint(" TTS Error: $msg");
     });
   }
 
@@ -233,35 +230,39 @@ class _WordProQuizState extends State<WordProQuiz> {
   Future<void> _loadQuestions() async {
     try {
       List<Module> modules = await apiService.getModules();
-      debugPrint('🔍 Found ${modules.length} total modules');
+      debugPrint(' Found ${modules.length} total modules');
       
       // Find all matching modules for better debugging
       final matchingModules = modules.where((element) {
         final matches = element.difficulty == widget.difficulty &&
                       element.category == 'Word Pronunciation';
         if (matches) {
-          debugPrint('✅ Found matching module: ${element.id} - ${element.title} (${element.difficulty})');
+          debugPrint(' Found matching module: ${element.id} - ${element.title} (${element.difficulty})');
         }
         return matches;
       }).toList();
       
       if (matchingModules.isEmpty) {
-        throw Exception('No matching module found for difficulty: ${widget.difficulty}');
+        debugPrint(' No matching modules found for difficulty: ${widget.difficulty}');
+        return;
       }
       
       // Use first matching module instead of last to be consistent
       final module = matchingModules.first;
-      debugPrint('📌 Selected module: ${module.id} - ${module.title}');
-
+      debugPrint(' Selected module: ${module.id} - ${module.title}');
+      
       setState(() {
         questions = module.questionsPerModule;
         moduleId = module.id; // Ensure we're using the correct module ID
-        debugPrint('📝 Loaded ${questions.length} questions for module: $moduleId');
+        debugPrint(' Loaded ${questions.length} questions for module: $moduleId');
+        for (var q in questions) {
+          debugPrint('   - Question: ${q.text} (id: ${q.id})');
+        }
       });
-
+      
       await _speakQuestion();
     } catch (e) {
-      debugPrint('❌ Error loading questions: $e');
+      debugPrint(' Error loading questions: $e');
       // Show error to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -286,7 +287,7 @@ class _WordProQuizState extends State<WordProQuiz> {
     try {
       final available = await _speech.initialize(
         onStatus: (status) {
-          debugPrint('🎙️ Speech status: $status');
+          debugPrint(' Speech status: $status');
           if (status == 'done') {
             _onSpeechComplete();
           }
@@ -338,6 +339,8 @@ class _WordProQuizState extends State<WordProQuiz> {
   Future<void> _nextQuestion() async {
     if (!mounted) return;
     
+    debugPrint(' Next question: currentQuestionIndex=$currentQuestionIndex, questions.length=${questions.length}');
+    
     if (currentQuestionIndex < questions.length - 1) {
       setState(() {
         currentQuestionIndex++;
@@ -349,17 +352,19 @@ class _WordProQuizState extends State<WordProQuiz> {
       });
       await _speakQuestion();
     } else {
+      debugPrint(' All questions answered, showing completion screen.');
+      // All questions answered, now submit all answers
       await _showCompletionScreen();
     }
   }
 
   Future<void> _showCompletionScreen() async {
     try {
-      debugPrint('📤 Submitting answers for module: $moduleId');
-      debugPrint('📝 Answers to submit: ${answers.map((a) => '${a.questionId}: ${a.answer} (${a.correct ? 'correct' : 'incorrect'})').join('\n')}');
+      debugPrint(' Submitting answers for module: $moduleId');
+      debugPrint(' Answers to submit: ${answers.map((a) => '${a.questionId}: ${a.answer} (${a.correct ? 'correct' : 'incorrect'})').join('\n')}');
       
       final response = await apiService.postSubmitModuleAnswer(moduleId, answers);
-      debugPrint('✅ Submission response: $response');
+      debugPrint(' Submission response: $response');
 
       final int totalScore = response['score'] ?? 0;
       final int totalXP = response['points_gained'] ?? 0;
@@ -371,87 +376,49 @@ class _WordProQuizState extends State<WordProQuiz> {
       try {
         final modules = await apiService.getModules();
         await storageService.storeModules(modules);
-        debugPrint('🔄 Refreshed modules data');
+        debugPrint(' Refreshed modules data');
       } catch (e) {
-        debugPrint('⚠️ Failed to refresh modules: $e');
+        debugPrint(' Failed to refresh modules: $e');
       }
 
-      showDialog(
+      await showDialog(
         context: context,
-        barrierDismissible: false, // Prevent dismissing by tapping outside
-        builder: (dialogContext) {
-          return WillPopScope(
-            onWillPop: () async => false, // Prevent back button
-            child: AlertDialog(
-              title: Text(
-                '${widget.moduleTitle} ${widget.difficulty} Quiz Complete',
-                style: GoogleFonts.montserrat(
-                  color: const Color(0xFF8B4513), // Brown
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Score: $totalScore / $totalQuestions',
-                      style: GoogleFonts.montserrat(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Mistakes: ${(totalQuestions - totalScore).clamp(0, totalQuestions)}',
-                      style: GoogleFonts.montserrat(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'XP Earned: $totalXP',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[700],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (context) => ModulesMenu(
-                          onModulesUpdated: (modules) {},
-                          key: UniqueKey(), // Force rebuild
-                        ),
-                      ),
-                      (route) => false,
-                    );
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B4513), // Brown
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    'Done',
-                    style: GoogleFonts.montserrat(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFFF5E8C7),
+            title: Text('Quiz Completed!', style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: const Color(0xFF8B4513))),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Score: $totalScore / $totalQuestions', style: GoogleFonts.montserrat(color: const Color(0xFF8B4513))),
+                Text('XP Gained: $totalXP', style: GoogleFonts.montserrat(color: const Color(0xFF8B4513))),
               ],
             ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close dialog
+                  Navigator.of(context).pop(); // Pop quiz page, return to module description
+                },
+                child: Text(
+                  'Done',
+                  style: GoogleFonts.montserrat(
+                    color: const Color(0xFF8B4513), // Brown
+                  ),
+                ),
+              ),
+            ],
           );
         },
       );
+
+      // After dialog is closed, pop the quiz page so user returns to module description page
+if (mounted) {
+  Navigator.of(context).pop();
+}
     } catch (e) {
-      debugPrint('❌ Failed to submit answers: $e');
+      debugPrint(' Failed to submit answers: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -459,13 +426,31 @@ class _WordProQuizState extends State<WordProQuiz> {
             backgroundColor: Colors.red,
           ),
         );
-        // Still navigate back even if submission fails
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (context) => ModulesMenu(onModulesUpdated: (modules) {}),
-          ),
-          (route) => false,
-        );
+        // After dialog is closed, go directly to module description page, replacing the quiz in the stack
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => ModuleContentPage(
+                module: Module(
+                  id: moduleId,
+                  title: widget.moduleTitle,
+                  description: '', // Optionally fetch or pass real description
+                  difficulty: widget.difficulty,
+                  category: 'Word Pronunciation',
+                  slug: '',
+                  createdBy: '',
+                  createdAt: DateTime.now(),
+                  questionsPerModule: questions,
+                  materials: const [],
+                  isLocked: false,
+                  completed: 1, // Mark as completed
+                  fileUrl: '',
+                ),
+                backRoute: '/module/${moduleId}', // or your actual module description route
+              ),
+            ),
+          );
+        }
       }
     }
   }
@@ -476,10 +461,7 @@ class _WordProQuizState extends State<WordProQuiz> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFF5E8C7),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF8B4513)),
-          onPressed: () => Navigator.pop(context),
-        ),
+        // No leading/back button
         title: Text(
           'Word Pronunciation',
           style: GoogleFonts.montserrat(
@@ -571,14 +553,20 @@ class _WordProQuizState extends State<WordProQuiz> {
           const SizedBox(height: 20),
           if (showNextButton)
             ElevatedButton(
-              onPressed: _nextQuestion,
+              onPressed: () {
+                if (currentQuestionIndex < questions.length - 1) {
+                  _nextQuestion();
+                } else {
+                  _showCompletionScreen();
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8B4513),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
               ),
               child: Text(
-                'Next',
+                currentQuestionIndex < questions.length - 1 ? 'Next' : 'Finish',
                 style: GoogleFonts.montserrat(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

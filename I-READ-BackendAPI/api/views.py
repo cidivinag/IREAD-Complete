@@ -166,21 +166,31 @@ def post_module_answers(request, module_id: str):
     total_questions = Question.objects.filter(module=module).count()
 
     if module.category == 'Word Pronunciation':
+        # Deduplicate answers by question_id (keep last answer for each question)
+        deduped = {}
         for answer in data:
+            qid = answer.get("question_id")
+            if qid:
+                deduped[qid] = answer  # last occurrence wins
+        for answer in deduped.values():
             question_id = answer.get("question_id")
             user_answer = answer.get("answer", "")
-            correct = answer.get("correct", False)
 
             question = Question.objects.filter(id=question_id, module=module).first()
-            if not question:
+            if not question or not hasattr(question, 'answer') or not question.answer:
                 continue
 
-            insert_word_pronunciation(user, question, question.answer.points, user_answer)
+            # Use same text similarity logic as other categories
+            expected_answer = question.answer.text.strip().lower().replace(" ", "")
+            user_text = user_answer.strip().lower().replace(" ", "")
+            is_correct = expected_answer == user_text or are_texts_similar(expected_answer, user_text)
 
-            if correct:
+            insert_word_pronunciation(user, question, question.answer.points if is_correct else 0, user_answer)
+
+            if is_correct:
                 total_points += question.answer.points
                 score += 1
-                questions_answered += 1
+            questions_answered += 1
 
         update_user_experience(user, total_points, module=module)
 
@@ -192,7 +202,7 @@ def post_module_answers(request, module_id: str):
             "message": "Word Pro answers submitted successfully",
             "points_gained": total_points,
             "score": score,
-            "total_questions": total_questions  # ✅ added to fix score display on frontend
+            "total_questions": total_questions
         }, status=status.HTTP_200_OK)
 
     # 🔁 Handle other module categories as before

@@ -295,9 +295,7 @@ class User_Word_Pronunciation_Answer(BaseModel):
         db_table = "user_word_pronunciation_answers"
         verbose_name = "User Word Pronunciation Answer"
         verbose_name_plural = "User Word Pronunciation Answers"
-        constraints = [
-            UniqueConstraint(fields=['question'], name='unique_question')
-        ]
+        unique_together = ('user', 'question')
 
     def __str__(self):
         return self.text

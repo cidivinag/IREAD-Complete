@@ -215,15 +215,8 @@ class _AppQuizState extends State<AppQuiz> {
       onWillPop: () async {
         bool shouldGoBack = await _showConfirmationDialog();
         if (shouldGoBack) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ModuleContentPage(
-                module: widget.module,
-                backRoute: widget.backRoute,
-              ),
-            ),
-          );
+          Navigator.of(context).pop(); // Close dialog
+          Navigator.of(context).pop(); // Pop quiz page, return to module description
         }
         return false;
       },
@@ -383,16 +376,7 @@ class _AppQuizState extends State<AppQuiz> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context); // Close dialog
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ModuleContentPage(
-                      module: widget.module,
-                      backRoute: widget.backRoute,
-                    ),
-                  ),
-                );
+                Navigator.of(context).pop();
               },
               child: Text(
                 'OK',
