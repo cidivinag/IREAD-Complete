@@ -398,9 +398,39 @@ class _WordProQuizState extends State<WordProQuiz> {
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).pop(); // Close dialog
-                  Navigator.of(context).pop(); // Pop quiz page, return to module description
-                },
+  Navigator.of(context).pop(); // Close dialog
+  String backRoute = '/wordpro_levels';
+  if (widget.difficulty == 'Easy') {
+    backRoute = '/wordpro_easy';
+  } else if (widget.difficulty == 'Medium') {
+    backRoute = '/wordpro_medium';
+  } else if (widget.difficulty == 'Hard') {
+    backRoute = '/wordpro_hard';
+  }
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ModuleContentPage(
+        module: Module(
+          id: moduleId,
+          title: widget.moduleTitle,
+          description: '', // Optionally fetch or pass real description
+          difficulty: widget.difficulty,
+          category: 'Word Pronunciation',
+          slug: '',
+          createdBy: '',
+          createdAt: DateTime.now(),
+          questionsPerModule: questions,
+          materials: const [],
+          isLocked: false,
+          completed: 1, // Mark as completed
+          fileUrl: '',
+        ),
+        backRoute: backRoute,
+      ),
+    ),
+  );
+},
                 child: Text(
                   'Done',
                   style: GoogleFonts.montserrat(
@@ -413,10 +443,8 @@ class _WordProQuizState extends State<WordProQuiz> {
         },
       );
 
-      // After dialog is closed, pop the quiz page so user returns to module description page
-if (mounted) {
-  Navigator.of(context).pop();
-}
+      // After dialog is closed, do nothing. Navigation handled in Done button above.
+
     } catch (e) {
       debugPrint(' Failed to submit answers: $e');
       if (mounted) {
