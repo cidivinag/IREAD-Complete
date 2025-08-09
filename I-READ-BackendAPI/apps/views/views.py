@@ -47,23 +47,40 @@ class HomepageView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        # Get leaderboard data, excluding any records with null users or points
         leaderboard = UserExperience.objects.filter(
-            user__user_student__isnull=False
-        ).select_related(
-            'user',
-            'user__user_student'
+            user__isnull=False,
+            total_points__isnull=False
         ).annotate(
             annotated_total_points=F('total_points')
-        ).order_by('-annotated_total_points')[:10]
+        ).order_by('-annotated_total_points').select_related('user')[:10]
+        
         leaderboard_data = []
-        for user_experience in leaderboard:
-            user = user_experience.user
-            user_data = UserSerializer(user).data
-            user_data["experience"] = UserExperienceSerializer(user_experience).data.get("total_points")
-            leaderboard_data.append(user_data)
-
-        context["analytics_active"] = "nav-active"
+        rank = 1
+        prev_points = None
+        
+        for i, user_exp in enumerate(leaderboard, 1):
+            # Skip if user is None (just to be extra safe)
+            if not user_exp.user:
+                continue
+                
+            # Update rank if points are less than previous
+            if prev_points is not None and user_exp.total_points < prev_points:
+                rank = i
+            
+            leaderboard_data.append({
+                "id": user_exp.user.id,
+                "first_name": user_exp.user.first_name or "",
+                "last_name": user_exp.user.last_name or "",
+                "experience": user_exp.total_points or 0,  # Ensure we have a number
+                "rank": rank
+            })
+            
+            prev_points = user_exp.total_points
+            
         context["leaderboard"] = leaderboard_data
+        context["analytics_active"] = "nav-active"
 
         module_points = Modules.objects.all()
         module_points_data = []
@@ -376,6 +393,32 @@ class QuestionAnswerCreateView(LoginRequiredMixin, TemplateView):
                         is_correct=(choice_val.strip() == answer_text.strip())
                     )
                     choice_index += 1
+
+        # Get the leaderboard data directly from UserExperience model
+        leaderboard = UserExperience.objects.annotate(
+            annotated_total_points=F('total_points')
+        ).order_by('-annotated_total_points').select_related('user')[:10]
+        
+        # Prepare the leaderboard data with ranks
+        leaderboard_data = []
+        rank = 1
+        prev_points = None
+        
+        for i, user_exp in enumerate(leaderboard, 1):
+            # Handle ranking with ties
+            if prev_points is not None and user_exp.total_points < prev_points:
+                rank = i  # Update rank when points decrease
+                
+            # Add user to leaderboard
+            leaderboard_data.append({
+                "id": user_exp.user.id,
+                "first_name": user_exp.user.first_name or "",
+                "last_name": user_exp.user.last_name or "",
+                "experience": user_exp.total_points,
+                "rank": rank
+            })
+            
+            prev_points = user_exp.total_points
 
         messages.success(request, "Questions saved successfully!")
         return redirect("module-detail", slug=slug)  # or any page you prefer

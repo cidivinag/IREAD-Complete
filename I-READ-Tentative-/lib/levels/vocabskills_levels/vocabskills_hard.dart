@@ -32,7 +32,6 @@ class _VocabSkillsHardState extends State<VocabSkillsHard> {
 
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width;
 
     return WillPopScope(
       onWillPop: () async {

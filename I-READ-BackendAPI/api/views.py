@@ -1,4 +1,8 @@
+import logging
 from rest_framework.response import Response
+
+# Set up logging
+logger = logging.getLogger(__name__)
 from rest_framework.decorators import api_view, permission_classes
 from apps.models import Modules, Question, User_Module_Answer, Answer, User_Word_Pronunciation_Answer, UserCompletedModules, Users, ModuleMaterials, UserExperience
 from apps.utils import are_texts_similar
@@ -212,27 +216,32 @@ def post_module_answers(request, module_id: str):
         correct = answer.get("correct", False)
 
         question = Question.objects.filter(id=question_id, module=module).first()
-        if not question:
+        if not question or not hasattr(question, 'answer') or not question.answer:
             continue
 
         category = module.category
         if category == 'Sentence Composition':
             correct_answer = question.answer.text.lower().strip().replace(" ", "")
-            user_answer = user_answer.lower().strip().replace(" ", "")
+            user_answer = user_answer.lower().strip().replace(" ", "") if user_answer else ""
+            is_correct = correct or user_answer == correct_answer or are_texts_similar(correct_answer, user_answer)
         elif category in ['Reading Comprehension', 'Vocabulary Skills']:
             correct_answer = question.answer.text
+            is_correct = correct or str(user_answer).strip() == str(correct_answer).strip()
         else:
-            correct_answer = question.answer
+            correct_answer = question.answer.text if hasattr(question.answer, 'text') else str(question.answer)
+            is_correct = correct or str(user_answer).strip() == str(correct_answer).strip()
 
         save_user_answer(user, question, user_answer)
 
-        if correct or user_answer == correct_answer:
+        if is_correct:
             total_points += question.answer.points
             score += 1
 
         questions_answered += 1
 
-    update_user_experience(user, total_points, module=module)
+    # Only update experience if we have points to add
+    if total_points > 0 or questions_answered > 0:
+        update_user_experience(user, total_points, module=module)
     if questions_answered == total_questions:
         UserCompletedModules.objects.get_or_create(user=user, module=module)
         unlock_next_module(user, module)
@@ -312,18 +321,29 @@ def assess_pronunciation(request):
 
         question = get_object_or_404(Question, id=question_id)
         
-        if question:
-          if question.module.category == 'Word Pronunciation':
-            # if not has_answered_question(user, question):
-            if has_answered_question(user, question) == False:
-              save_user_answer(user, question, result.text)
-              total_points += (pronunciation_result.pronunciation_score/10)
-              # insert in to User_Word_Pronunciation_Answer for special case
-              insert_word_pronunciation(user, question, (pronunciation_result.pronunciation_score/10), result.text)
-          update_user_experience(user, total_points)
-          if User_Module_Answer.objects.filter(user=user, question__module=question.module).count() == question.module.questions_per_module.count():
-            UserCompletedModules.objects.get_or_create(user=user, module=question.module)
-            unlock_next_module(user, question.module)
+        if question and question.module.category == 'Word Pronunciation':
+            # Only process if the question hasn't been answered yet
+            if not has_answered_question(user, question):
+                save_user_answer(user, question, result.text)
+                # Calculate points based on pronunciation score (0-100 scale)
+                points_earned = int(pronunciation_result.pronunciation_score)  # Convert to integer points
+                
+                # Save to User_Word_Pronunciation_Answer
+                insert_word_pronunciation(user, question, points_earned, result.text)
+                
+                # Update user experience with the points
+                update_user_experience(user, points_earned, module=question.module)
+                
+                # Check if all questions in the module are answered
+                total_questions = question.module.questions_per_module.count()
+                answered_questions = User_Word_Pronunciation_Answer.objects.filter(
+                    user=user, 
+                    question__module=question.module
+                ).values('question').distinct().count()
+                
+                if answered_questions >= total_questions:
+                    UserCompletedModules.objects.get_or_create(user=user, module=question.module)
+                    unlock_next_module(user, question.module)
 
         score_point = int(pronunciation_result.pronunciation_score / 10)
 
@@ -416,32 +436,61 @@ def save_user_answer(user, question, answer_text):
 
 
 def update_user_experience(user, points, module=None):
-    user_experience, _ = UserExperience.objects.get_or_create(user=user)
+    logger.info(f"Updating experience for user {user.id} - Adding {points} points for module: {module.id if module else 'None'}")
+    
+    user_experience, created = UserExperience.objects.get_or_create(user=user)
+    logger.info(f"UserExperience {'created' if created else 'retrieved'} for user {user.id}")
 
+    points_before = user_experience.total_points
+    
     if module:
+        logger.info(f"Processing module {module.id} ({module.title}) of type {module.category}")
         # Remove old XP earned from this same module
         if module.category == 'Word Pronunciation':
             old_points = User_Word_Pronunciation_Answer.objects.filter(
                 user=user, question__module=module
             ).aggregate(total=Sum('points'))['total'] or 0
+            logger.info(f"Word Pronunciation module - Old points to remove: {old_points}")
+            
         elif module.category == 'Sentence Composition':
             old_points = 0
             user_answers = User_Module_Answer.objects.filter(user=user, question__module=module)
+            logger.info(f"Found {user_answers.count()} user answers for Sentence Composition")
+            
             for user_answer in user_answers:
                 correct_answers = Answer.objects.filter(question=user_answer.question)
+                logger.info(f"Checking answer for question {user_answer.question.id} - User answer: {user_answer.text}")
+                
                 for correct_answer in correct_answers:
+                    logger.info(f"  Comparing with correct answer: {correct_answer.text}")
                     if are_texts_similar(correct_answer.text, user_answer.text):
                         old_points += correct_answer.points
+                        logger.info(f"  Match found! Adding {correct_answer.points} points (total: {old_points})")
         else:
-            old_points = User_Module_Answer.objects.filter(user=user, question__module=module).filter(
+            old_points = User_Module_Answer.objects.filter(
+                user=user, 
+                question__module=module,
                 question__answer__text=F('text')
             ).aggregate(total=Sum('question__answer__points'))['total'] or 0
+            logger.info(f"Standard module - Old points to remove: {old_points}")
 
+        logger.info(f"Removing {old_points} old points")
         user_experience.total_points -= old_points
+        logger.info(f"Points after removing old points: {user_experience.total_points}")
 
+    logger.info(f"Adding {points} new points")
     user_experience.total_points += points
     user_experience.total_points = max(user_experience.total_points, 0)  # prevent negative XP
+    
+    logger.info(f"Saving user experience - Before: {points_before}, After: {user_experience.total_points}")
     user_experience.save()
+    
+    # Verify the save
+    updated_exp = UserExperience.objects.get(user=user)
+    if updated_exp.total_points != user_experience.total_points:
+        logger.error(f"POINTS NOT SAVED CORRECTLY! Expected: {user_experience.total_points}, Got: {updated_exp.total_points}")
+    else:
+        logger.info("Points updated successfully")
 
   
 def insert_word_pronunciation(user, question, result, text):
