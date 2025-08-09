@@ -48,10 +48,11 @@ class HomepageView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Get leaderboard data, excluding any records with null users or points
+        # Get leaderboard data, only including students (users with user_student relation)
         leaderboard = UserExperience.objects.filter(
             user__isnull=False,
-            total_points__isnull=False
+            total_points__isnull=False,
+            user__user_student__isnull=False  # Only include users who are students
         ).annotate(
             annotated_total_points=F('total_points')
         ).order_by('-annotated_total_points').select_related('user')[:10]
