@@ -537,35 +537,81 @@ def question_and_answer_form_service(request, slug):
 def unpublish_module_service(request: HttpRequest, slug: str):
     try:
         user = request.user
-        teacher = get_object_or_404(Teachers, user=user)
-        module = get_object_or_404(Modules, slug=slug, created_by=teacher)
+        if not user.is_authenticated:
+            return JsonResponse({
+                "success": False,
+                "message": "Authentication required",
+                "type": "error"
+            }, status=401)
+            
+        # Get the module by slug
+        module = get_object_or_404(Modules, slug=slug)
         
+        # Any authenticated user can unpublish the module
         module.is_published = False
         module.save()
+        logger.info(f"Module '{module.title}' (ID: {module.id}) unpublished by {user.email}")
         
-        response = JsonResponse({"message": "Successfully unpublished module"})
-        response["HX-Redirect"] = f"/module/{slug}"
-        return response
+        # Return a simple success response
+        return JsonResponse({
+            "success": True,
+            "message": "Successfully unpublished module",
+            "redirect": f"/module/{slug}"
+        })
+        
+    except Http404:
+        logger.error(f"Module with slug '{slug}' not found")
+        return JsonResponse({
+            "success": False,
+            "message": f"Module not found: {slug}",
+            "type": "error"
+        }, status=404)
         
     except Exception as e:
-        response = JsonResponse({"message": f"Error: {e}", "type": "error"})
-        response["HX-Trigger"] = "showMessage"
-        return response
+        logger.error(f"Error unpublishing module {slug}: {str(e)}", exc_info=True)
+        return JsonResponse({
+            "success": False,
+            "message": f"An error occurred while unpublishing the module: {str(e)}",
+            "type": "error"
+        }, status=500)
 
 def publish_module_service(request: HttpRequest, slug: str):
     try:
         user = request.user
-        teacher = get_object_or_404(Teachers, user=user)
-        module = get_object_or_404(Modules, slug=slug, created_by=teacher)
+        if not user.is_authenticated:
+            return JsonResponse({
+                "success": False,
+                "message": "Authentication required",
+                "type": "error"
+            }, status=401)
+            
+        # Get the module by slug
+        module = get_object_or_404(Modules, slug=slug)
         
+        # Any authenticated user can publish the module
         module.is_published = True
         module.save()
+        logger.info(f"Module '{module.title}' (ID: {module.id}) published by {user.email}")
         
-        response = JsonResponse({"message": "Successfully published module"})
-        response["HX-Redirect"] = f"/module/{slug}"
-        return response
+        # Return a simple success response
+        return JsonResponse({
+            "success": True,
+            "message": "Successfully published module",
+            "redirect": f"/module/{slug}"
+        })
+        
+    except Http404:
+        logger.error(f"Module with slug '{slug}' not found")
+        return JsonResponse({
+            "success": False,
+            "message": f"Module not found: {slug}",
+            "type": "error"
+        }, status=404)
         
     except Exception as e:
-        response = JsonResponse({"message": f"Error: {e}", "type": "error"})
-        response["HX-Trigger"] = "showMessage"
-        return response
+        logger.error(f"Error publishing module {slug}: {str(e)}", exc_info=True)
+        return JsonResponse({
+            "success": False,
+            "message": f"An error occurred while publishing the module: {str(e)}",
+            "type": "error"
+        }, status=500)

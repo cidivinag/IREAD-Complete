@@ -156,8 +156,8 @@ class _WordProEasyState extends State<WordProEasy> {
             children: [
               if (shouldBeLocked) 
                 const Padding(
-                  padding: EdgeInsets.only(right: 8.0),
-                  child: Icon(Icons.lock, color: Colors.white),
+                  padding: EdgeInsets.only(left: 16.0, right: 8.0),
+                  child: Icon(Icons.lock, color: Colors.white, size: 20),
                 ),
               Expanded(
                 child: Text(

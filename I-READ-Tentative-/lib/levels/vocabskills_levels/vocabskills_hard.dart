@@ -105,37 +105,101 @@ class _VocabSkillsHardState extends State<VocabSkillsHard> {
   }
 
   Widget _buildModuleButton(BuildContext context, Module module) {
+    // Debug: Print module details when building button
+    print('Building button for module: ${module.id} - ${module.title}');
+    print('  isLocked: ${module.isLocked}');
+    print('  isPublished: ${module.isPublished}');
+    print('  category: ${module.category}');
+    print('  difficulty: ${module.difficulty}');
+    
+    // Determine if module should be locked based on both isLocked and isPublished
+    final bool shouldBeLocked = module.isLocked || !module.isPublished;
+    
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: SizedBox(
         width: 400,
         child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ModuleContentPage(
-                  module: module,
-                  backRoute: '/vocabskills_hard',
-                ),
-              ),
-            );
-          },
+          onPressed: shouldBeLocked
+              ? () => _showLockedModuleDialog(context)
+              : () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ModuleContentPage(
+                        module: module,
+                        backRoute: '/vocabskills_hard',
+                      ),
+                    ),
+                  );
+                },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF8B4513), // Brown
+            backgroundColor: shouldBeLocked 
+                ? Colors.grey[400]  // Gray for locked modules
+                : const Color(0xFF8B4513), // Brown for unlocked modules
             padding: const EdgeInsets.symmetric(vertical: 25),
           ),
-          child: Text(
-            module.title,
-            style: GoogleFonts.montserrat(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (shouldBeLocked) 
+                const Padding(
+                  padding: EdgeInsets.only(left: 16.0, right: 8.0),
+                  child: Icon(Icons.lock, color: Colors.white, size: 20),
+                ),
+              Expanded(
+                child: Text(
+                  module.title,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showLockedModuleDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFF5E8C7), // Match app theme
+          title: Text(
+            'Module Locked',
+            style: GoogleFonts.montserrat(
+              color: const Color(0xFF8B4513),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'This module is still locked. Please contact your supervisor for more information.',
+            style: GoogleFonts.montserrat(
+              color: Colors.black87,
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text(
+                'OK',
+                style: GoogleFonts.montserrat(
+                  color: const Color(0xFF8B4513),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }
