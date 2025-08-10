@@ -41,53 +41,58 @@ class _SentenceCompositionLevelsState extends State<SentenceCompositionLevels> {
         'Hard': true,   // Locked by default
       };
 
-      // Count total and completed modules for each difficulty level
+      // Count total published and completed published modules for each difficulty level
       final levelCounts = {
-        'Easy': {'total': 0, 'completed': 0},
-        'Medium': {'total': 0, 'completed': 0},
-        'Hard': {'total': 0, 'completed': 0},
+        'Easy': {'published': 0, 'completed': 0},
+        'Medium': {'published': 0, 'completed': 0},
+        'Hard': {'published': 0, 'completed': 0},
       };
 
-      // Calculate totals and completed counts
+      // Calculate published and completed counts
       for (var module in sentCompModules) {
         final level = module.difficulty;
         if (levelCounts.containsKey(level)) {
-          levelCounts[level]!['total'] = (levelCounts[level]!['total'] ?? 0) + 1;
-          
-          // The backend sets progress to 1 when all questions are answered correctly
-          // We consider a module completed if progress is 1 (100%)
-          bool isCompleted = module.completed == 1;
-                              
-          if (isCompleted) {
-            levelCounts[level]!['completed'] = (levelCounts[level]!['completed'] ?? 0) + 1;
+          // Only count published modules
+          if (module.isPublished) {
+            levelCounts[level]!['published'] = (levelCounts[level]!['published'] ?? 0) + 1;
+            
+            // Check if this published module is completed
+            bool isCompleted = module.completed == 1;
+            if (isCompleted) {
+              levelCounts[level]!['completed'] = (levelCounts[level]!['completed'] ?? 0) + 1;
+            }
+            
+            print('Module: ${module.title}, Level: $level, Published: ${module.isPublished}, Completed: $isCompleted');
           }
-          
-          print('Module: ${module.title}, Level: $level, Progress: ${module.completed}, Completed: $isCompleted');
         }
       }
 
       // 1. Handle Easy level (always unlocked)
       locks['Easy'] = false;
       
-      // 2. Handle Medium level - unlock only if ALL Easy modules are completed
-      if (levelCounts['Easy']!['total']! > 0) {
-        // Check if all Easy modules are completed
-        final allEasyCompleted = levelCounts['Easy']!['completed'] == levelCounts['Easy']!['total'];
-        locks['Medium'] = !allEasyCompleted; // Lock if not all Easy are completed
+      // 2. Handle Medium level - unlock only if ALL published Easy modules are completed
+      if (levelCounts['Easy']!['published']! > 0) {
+        // Check if all published Easy modules are completed
+        final allEasyCompleted = levelCounts['Easy']!['completed'] == levelCounts['Easy']!['published'];
+        locks['Medium'] = !allEasyCompleted; // Lock if not all published Easy are completed
+        print('Medium level lock status: ${locks['Medium']} (${levelCounts['Easy']!['completed']}/${levelCounts['Easy']!['published']} Easy completed)');
       } else {
-        // If no Easy modules exist, keep Medium locked
+        // If no published Easy modules exist, keep Medium locked
         locks['Medium'] = true;
+        print('No published Easy modules found, keeping Medium locked');
       }
 
-      // 3. Handle Hard level - unlock only if ALL Medium modules are completed AND Medium is already unlocked
-      if (levelCounts['Medium']!['total']! > 0) {
-        // Check if all Medium modules are completed
-        final allMediumCompleted = levelCounts['Medium']!['completed'] == levelCounts['Medium']!['total'];
-        // Lock if not all Medium are completed OR if Medium is still locked
+      // 3. Handle Hard level - unlock only if ALL published Medium modules are completed AND Medium is already unlocked
+      if (levelCounts['Medium']!['published']! > 0) {
+        // Check if all published Medium modules are completed
+        final allMediumCompleted = levelCounts['Medium']!['completed'] == levelCounts['Medium']!['published'];
+        // Lock if not all published Medium are completed OR if Medium is still locked
         locks['Hard'] = !allMediumCompleted || locks['Medium']!;
+        print('Hard level lock status: ${locks['Hard']} (${levelCounts['Medium']!['completed']}/${levelCounts['Medium']!['published']} Medium completed)');
       } else {
-        // If no Medium modules exist, keep Hard locked
+        // If no published Medium modules exist, keep Hard locked
         locks['Hard'] = true;
+        print('No published Medium modules found, keeping Hard locked');
       }
 
       print("Sentence Composition Level Locks: $locks");

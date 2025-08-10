@@ -99,48 +99,63 @@ class _ReadCompEasyState extends State<ReadCompEasy> {
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: SizedBox(
+      child: Container(
         width: 400,
-        child: ElevatedButton(
-          onPressed: shouldBeLocked
-              ? () => _showLockedModuleDialog(context)
-              : () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ModuleContentPage(
-                        module: module,
-                        backRoute: '/read_comp_easy',
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8.0),
+          color: shouldBeLocked ? Colors.grey[400] : const Color(0xFF8B4513),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: shouldBeLocked
+                ? () => _showLockedModuleDialog(context)
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ModuleContentPage(
+                          module: module,
+                          backRoute: '/read_comp_easy',
+                        ),
                       ),
+                    );
+                  },
+            borderRadius: BorderRadius.circular(8.0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (shouldBeLocked) 
+                    const Padding(
+                      padding: EdgeInsets.only(right: 12.0),
+                      child: Icon(Icons.lock, color: Colors.white, size: 20),
                     ),
-                  );
-                },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: shouldBeLocked 
-                ? Colors.grey[400]  // Gray for locked modules
-                : const Color(0xFF8B4513), // Brown for unlocked modules
-            padding: const EdgeInsets.symmetric(vertical: 25),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (shouldBeLocked) 
-                const Padding(
-                  padding: EdgeInsets.only(left: 16.0, right: 8.0),
-                  child: Icon(Icons.lock, color: Colors.white, size: 20),
-                ),
-              Expanded(
-                child: Text(
-                  module.title,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  Expanded(
+                    child: Text(
+                      module.title,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        height: 1.3,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -161,7 +176,7 @@ class _ReadCompEasyState extends State<ReadCompEasy> {
             ),
           ),
           content: Text(
-            'This module is still locked. Please contact your supervisor for more information.',
+            'This module is still unpublished. Please contact your supervisor for more information.',
             style: GoogleFonts.montserrat(
               color: Colors.black87,
             ),
