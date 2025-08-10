@@ -11,7 +11,7 @@ from django.db.models import UniqueConstraint, Sum
 from apps.utils import generate_access_token
 from django.core.validators import MaxValueValidator
 from django.core.exceptions import ValidationError
-
+from django.utils import timezone
 from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -35,6 +35,7 @@ class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError("The email field must be set")
+        extra_fields.setdefault("date_joined", timezone.now())
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
@@ -55,7 +56,6 @@ class CustomUserManager(BaseUserManager):
 
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_superuser", True)
-
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
 
@@ -79,6 +79,7 @@ class BaseModel(models.Model):
 
 class Users(AbstractBaseUser, PermissionsMixin, BaseModel):
     username = models.CharField(max_length=30, blank=True, null=True, default=None)
+    date_joined = models.DateTimeField(default=timezone.now)  # <-- add this
 
     email = models.CharField(max_length=255, unique=True, blank=True, null=True)
     first_name = models.CharField(max_length=255)

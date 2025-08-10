@@ -6,7 +6,7 @@ from django.urls import reverse_lazy
 from django.views.generic import TemplateView, DetailView, CreateView, View
 from django.contrib import messages
 from django.utils.text import slugify
-from apps.models import Modules, Question, User_Word_Pronunciation_Answer, UserExperience
+from apps.models import Modules, Question, User_Word_Pronunciation_Answer, UserExperience, Users, User_Module_Answer, Answer, UserCompletedModules
 from api.serializers import CompletedModulePointsSerializer, ModulesSerializer, QuestionSerializer, UserExperienceSerializer, UserSerializer
 from django.db.models import Sum, F
 from fuzzywuzzy import fuzz
@@ -48,37 +48,73 @@ class HomepageView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Get leaderboard data, only including students (users with user_student relation)
-        leaderboard = UserExperience.objects.filter(
-            user__isnull=False,
-            total_points__isnull=False,
-            user__user_student__isnull=False  # Only include users who are students
-        ).annotate(
-            annotated_total_points=F('total_points')
-        ).order_by('-annotated_total_points').select_related('user')[:10]
+        # Get all students
+        students = Users.objects.filter(
+            user_student__isnull=False  # Only include users who are students
+        ).select_related('experience')
+        
+        # Calculate total points for each student the same way as in the profile API
+        leaderboard_data = []
+        for student in students:
+            total_points = 0
+            completed_modules = UserCompletedModules.objects.filter(user=student)
+            
+            for completed in completed_modules:
+                module = completed.module
+                if module.category == 'Word Pronunciation':
+                    module_points = User_Word_Pronunciation_Answer.objects.filter(
+                        user=student, 
+                        question__module=module
+                    ).aggregate(total=Sum('points'))['total'] or 0
+                    total_points += module_points
+                elif module.category == 'Sentence Composition':
+                    user_answers = User_Module_Answer.objects.filter(
+                        user=student, 
+                        question__module=module
+                    )
+                    for user_answer in user_answers:
+                        correct_answers = Answer.objects.filter(question=user_answer.question)
+                        for correct_answer in correct_answers:
+                            if are_texts_similar(correct_answer.text, user_answer.text):
+                                total_points += correct_answer.points
+                else:
+                    module_points = User_Module_Answer.objects.filter(
+                        user=student,
+                        question__module=module,
+                        question__answer__text=F('text')
+                    ).aggregate(total=Sum('question__answer__points'))['total'] or 0
+                    total_points += module_points
+            
+            if total_points > 0:  # Only include students with points
+                leaderboard_data.append({
+                    'user': student,
+                    'total_points': total_points
+                })
+        
+        # Sort by total_points in descending order and take top 10
+        leaderboard = sorted(leaderboard_data, key=lambda x: x['total_points'], reverse=True)[:10]
         
         leaderboard_data = []
         rank = 1
         prev_points = None
         
-        for i, user_exp in enumerate(leaderboard, 1):
-            # Skip if user is None (just to be extra safe)
-            if not user_exp.user:
-                continue
-                
+        for i, entry in enumerate(leaderboard, 1):
+            user = entry['user']
+            total_points = entry['total_points']
+            
             # Update rank if points are less than previous
-            if prev_points is not None and user_exp.total_points < prev_points:
+            if prev_points is not None and total_points < prev_points:
                 rank = i
             
             leaderboard_data.append({
-                "id": user_exp.user.id,
-                "first_name": user_exp.user.first_name or "",
-                "last_name": user_exp.user.last_name or "",
-                "experience": user_exp.total_points or 0,  # Ensure we have a number
+                "id": user.id,
+                "first_name": user.first_name or "",
+                "last_name": user.last_name or "",
+                "experience": total_points,
                 "rank": rank
             })
             
-            prev_points = user_exp.total_points
+            prev_points = total_points
             
         context["leaderboard"] = leaderboard_data
         context["analytics_active"] = "nav-active"

@@ -14,6 +14,7 @@ class Module {
   List<Question> questionsPerModule;
   List<ModuleMaterial> materials;
   bool isLocked;
+  bool isPublished;
   int completed = 0;
   String fileUrl;
   Module({
@@ -29,6 +30,7 @@ class Module {
     required this.questionsPerModule,
     required this.materials,
     required this.isLocked,
+    this.isPublished = true,
     required this.completed,
     required this.fileUrl,
   });
@@ -49,6 +51,7 @@ class Module {
               .toList() ??
           [],
       isLocked: json['isLock'] ?? false,
+      isPublished: json['is_published'] ?? json['is_published'] ?? true,
       completed: json['progress'] ?? 0,
       fileUrl: json['file_url'] ?? '',
       materials: (json['module_materials'] as List<dynamic>?)
@@ -70,7 +73,8 @@ class Module {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'questions_per_module': questionsPerModule.map((q) => q.toJson()).toList(),
-      'isLock': isLocked,
+'isLock': isLocked,
+      'is_published': isPublished,
       'completed': completed,
       'file_url': fileUrl,
       'materials': materials.map((m) => m.toJson()).toList(),
