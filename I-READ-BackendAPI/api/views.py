@@ -71,22 +71,21 @@ def jwt_login(request):
 @permission_classes([IsAuthenticated])
 def get_profile(request):
     user = request.user
-    user_experience = UserExperience.objects.get_or_create(user=user)[0]
-    leaderboard = UserExperience.objects.annotate(annotated_total_points=F('total_points')).order_by('-annotated_total_points')
-    rank = next((index + 1 for index, exp in enumerate(leaderboard) if exp.user == user), None)
-    user_serializer = UserSerializer(user, many=False)
-    user_profile_data = user_serializer.data
-    user_profile_data['rank'] = rank if rank else "Unranked"
+    user_experience, _ = UserExperience.objects.get_or_create(user=user)
+    
+    # Calculate total experience and get completed modules
     total_experience = 0
     completed_modules = UserCompletedModules.objects.filter(user=user)
     completed_modules_data = []
-
-    # Get total number of published modules
     total_modules = Modules.objects.filter(is_published=True).count()
+    
+    # Calculate experience from all completed modules
     for completed in completed_modules:
         module = completed.module
         if module.category == 'Word Pronunciation':
-            total_module_points = User_Word_Pronunciation_Answer.objects.filter(user=user, question__module=module).aggregate(total_points=Sum('points'))['total_points'] or 0
+            total_module_points = User_Word_Pronunciation_Answer.objects.filter(
+                user=user, question__module=module
+            ).aggregate(total_points=Sum('points'))['total_points'] or 0
             total_experience += total_module_points
         elif module.category == 'Sentence Composition':
             total_module_points = 0
@@ -96,14 +95,44 @@ def get_profile(request):
                 for correct_answer in correct_answers:
                     if are_texts_similar(correct_answer.text, user_answer.text):
                         total_module_points += correct_answer.points
-                        total_experience += correct_answer.points
-        else:
-            total_module_points = User_Module_Answer.objects.filter(user=user, question__module=module).filter(question__answer__text=F('text')).aggregate(total_points=Sum('question__answer__points'))['total_points'] or 0
             total_experience += total_module_points
+        else:
+            total_module_points = User_Module_Answer.objects.filter(
+                user=user, 
+                question__module=module,
+                question__answer__text=F('text')
+            ).aggregate(total_points=Sum('question__answer__points'))['total_points'] or 0
+            total_experience += total_module_points
+            
         completed_modules_data.append({
             'module_title': module.title,
             'points_earned': total_module_points
         })
+    
+    # Update user's experience in the database
+    if user_experience.total_points != total_experience:
+        user_experience.total_points = total_experience
+        user_experience.save()
+    
+    # Calculate rank by getting all users with their experience
+    user_experiences = []
+    for u in Users.objects.all():
+        u_exp = UserExperience.objects.get_or_create(user=u)[0]
+        user_experiences.append({
+            'user': u,
+            'total_experience': u_exp.total_points
+        })
+    
+    # Sort by total_experience in descending order
+    sorted_users = sorted(user_experiences, key=lambda x: x['total_experience'], reverse=True)
+    
+    # Find the user's rank
+    rank = next((i + 1 for i, u in enumerate(sorted_users) if u['user'].id == user.id), None)
+    
+    # Prepare response
+    user_serializer = UserSerializer(user, many=False)
+    user_profile_data = user_serializer.data
+    user_profile_data['rank'] = rank if rank is not None else "Unranked"
     user_profile_data['completed_modules'] = completed_modules_data
     user_profile_data['experience'] = total_experience
     return Response(user_profile_data)
@@ -112,13 +141,61 @@ def get_profile(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_leaderboard(request):
-    leaderboard = UserExperience.objects.annotate(annotated_total_points=F('total_points')).order_by('-annotated_total_points')[:10]
+    user_experiences = []
+    
+    # Calculate experience for all users the same way as in get_profile
+    for user in Users.objects.all():
+        total_experience = 0
+        completed_modules = UserCompletedModules.objects.filter(user=user)
+        
+        for completed in completed_modules:
+            module = completed.module
+            if module.category == 'Word Pronunciation':
+                total_module_points = User_Word_Pronunciation_Answer.objects.filter(
+                    user=user, question__module=module
+                ).aggregate(total_points=Sum('points'))['total_points'] or 0
+                total_experience += total_module_points
+                
+            elif module.category == 'Sentence Composition':
+                total_module_points = 0
+                user_answers = User_Module_Answer.objects.filter(user=user, question__module=module)
+                for user_answer in user_answers:
+                    correct_answers = Answer.objects.filter(question=user_answer.question)
+                    for correct_answer in correct_answers:
+                        if are_texts_similar(correct_answer.text, user_answer.text):
+                            total_module_points += correct_answer.points
+                total_experience += total_module_points
+                
+            else:
+                total_module_points = User_Module_Answer.objects.filter(
+                    user=user, 
+                    question__module=module,
+                    question__answer__text=F('text')
+                ).aggregate(total_points=Sum('question__answer__points'))['total_points'] or 0
+                total_experience += total_module_points
+        
+        # Update UserExperience to keep it in sync
+        user_exp, _ = UserExperience.objects.get_or_create(user=user)
+        if user_exp.total_points != total_experience:
+            user_exp.total_points = total_experience
+            user_exp.save()
+            
+        user_experiences.append({
+            'user': user,
+            'total_experience': total_experience
+        })
+    
+    # Sort by total_experience in descending order
+    sorted_users = sorted(user_experiences, key=lambda x: x['total_experience'], reverse=True)
+    
+    # Prepare response with ranks
     leaderboard_data = []
-    for user_experience in leaderboard:
-        user = user_experience.user
-        user_data = UserSerializer(user).data
-        user_data['experience'] = user_experience.total_points
+    for rank, item in enumerate(sorted_users[:10], 1):  # Top 10
+        user_data = UserSerializer(item['user']).data
+        user_data['experience'] = item['total_experience']
+        user_data['rank'] = rank
         leaderboard_data.append(user_data)
+    
     return Response({'leaderboard': leaderboard_data})
 
 @api_view(['GET'])
@@ -479,8 +556,7 @@ def update_user_experience(user, points, module=None):
         logger.info(f"Points after removing old points: {user_experience.total_points}")
 
     logger.info(f"Adding {points} new points")
-    user_experience.total_points += points
-    user_experience.total_points = max(user_experience.total_points, 0)  # prevent negative XP
+    user_experience.total_points = max(user_experience.total_points + points, 0)  # prevent negative XP
     
     logger.info(f"Saving user experience - Before: {points_before}, After: {user_experience.total_points}")
     user_experience.save()
@@ -490,6 +566,7 @@ def update_user_experience(user, points, module=None):
     if updated_exp.total_points != user_experience.total_points:
         logger.error(f"POINTS NOT SAVED CORRECTLY! Expected: {user_experience.total_points}, Got: {updated_exp.total_points}")
     else:
+        logger.info("Points saved successfully")
         logger.info("Points updated successfully")
 
   
