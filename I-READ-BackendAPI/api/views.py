@@ -188,13 +188,22 @@ def get_leaderboard(request):
     # Sort by total_experience in descending order
     sorted_users = sorted(user_experiences, key=lambda x: x['total_experience'], reverse=True)
     
-    # Prepare response with ranks
+    # Prepare response with ranks, using 1, 2, 2, 4 pattern for ties
     leaderboard_data = []
-    for rank, item in enumerate(sorted_users[:10], 1):  # Top 10
+    prev_experience = None
+    rank = 0
+    
+    for i, item in enumerate(sorted_users[:10]):  # Top 10
+        # If this is the first item or different from previous, update the rank
+        if i == 0 or item['total_experience'] != prev_experience:
+            rank = i + 1
+        
         user_data = UserSerializer(item['user']).data
         user_data['experience'] = item['total_experience']
         user_data['rank'] = rank
         leaderboard_data.append(user_data)
+        
+        prev_experience = item['total_experience']
     
     return Response({'leaderboard': leaderboard_data})
 

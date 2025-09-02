@@ -465,6 +465,11 @@ def upload_module_material_service(request: HttpRequest, slug: str):
         name = request.POST.get("name", "")
         file = request.FILES.get("file", None)
 
+        # Backend PDF validation
+        if file is None or not (file.content_type == "application/pdf" or file.name.lower().endswith(".pdf")):
+            response = JsonResponse({"message": "Only PDF files are allowed for upload."}, status=400)
+            return response
+
         upload_file = upload_file_to_storage(file=file)
 
         path = upload_file["path"]

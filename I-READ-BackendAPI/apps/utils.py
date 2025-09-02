@@ -66,5 +66,5 @@ def are_texts_similar(text1, text2, threshold=99):
     text1_processed = text1.replace(" ", "").lower()
     text2_processed = text2.replace(" ", "").lower()
     ratio = fuzz.ratio(text1_processed, text2_processed)
-    print(f"Similarity ratio between '{text1}' and '{text2}': {ratio}")
+    # print(f"Similarity ratio between '{text1}' and '{text2}': {ratio}")
     return ratio >= threshold

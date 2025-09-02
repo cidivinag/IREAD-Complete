@@ -248,37 +248,16 @@
                     <th class="text-xs font-semibold">
                         <div class="header-filter-container">
                             <span>Status</span>
-                            <form hx-get="{% url 'module_builder' %}" hx-target="#pagination-table" hx-swap="innerHTML">
-                                <select name="status" onchange="this.form.submit()" class="border rounded px-2 py-1 text-xs">
-                                    {% for stat in statuses %}
-                                        <option value="{{ stat.0 }}" {% if request.GET.status == stat.0 %}selected{% endif %}>{{ stat.1 }}</option>
-                                    {% endfor %}
-                                </select>
-                                <input type="hidden" name="difficulty" value="{{ request.GET.difficulty }}">
-                                <input type="hidden" name="category" value="{{ request.GET.category }}">
-                                <input type="hidden" name="creator" value="{{ request.GET.creator }}">
-                            </form>
                         </div>
                     </th>
                     <th class="text-xs font-semibold">
                         <div class="header-filter-container">
-                            <span>Created By</span>
-                            <form hx-get="{% url 'module_builder' %}" hx-target="#pagination-table" hx-swap="innerHTML">
-                                <select name="creator" onchange="this.form.submit()" class="border rounded px-2 py-1 text-xs">
-                                    <option value="">All</option>
-                                    {% for creator in creators %}
-                                        <option value="{{ creator }}" {% if request.GET.creator == creator %}selected{% endif %}>{{ creator }}</option>
-                                    {% endfor %}
-                                </select>
-                                <input type="hidden" name="difficulty" value="{{ request.GET.difficulty }}">
-                                <input type="hidden" name="category" value="{{ request.GET.category }}">
-                                <input type="hidden" name="status" value="{{ request.GET.status }}">
-                            </form>
+                            <span>Creator</span>
                         </div>
                     </th>
                     <th class="text-xs font-semibold">
                         <div class="header-filter-container">
-                            <span>Action</span>
+                            <span>Actions</span>
                         </div>
                     </th>
                 </tr>
@@ -286,9 +265,9 @@
             <tbody>
                 {% for module in modules %}
                     <tr>
-                        <td class="text-xs font-medium whitespace-nowrap">{{ forloop.counter }}</td>
-                        <td class="text-xs whitespace-nowrap">{{ module.title }}</td>
-                        <td class="text-xs description">{{ module.description }}</td>
+                        <td class="text-xs font-medium">{{ forloop.counter }}</td>
+                        <td class="text-xs module-title-cell" title="{{ module.title }}">{{ module.title }}</td>
+                        <td class="text-xs description" title="{{ module.description }}">{{ module.description }}</td>
                         <td class="text-xs">
                             {% if module.difficulty == "Easy" %}
                                 <span class="inline-flex items-center gap-x-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
@@ -297,20 +276,22 @@
                                     </svg>
                                     Easy
                                 </span>
-                            {% elif module.difficulty == "Medium" %}
-                                <span class="inline-flex items-center gap-x-1.5 rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
-                                    <svg class="h-1.5 w-1.5 fill-green-500" viewBox="0 0 6 6" aria-hidden="true">
-                                        <circle cx="3" cy="3" r="3"/>
-                                    </svg>
-                                    Medium
-                                </span>
-                            {% elif module.difficulty == "Hard" %}
-                                <span class="inline-flex items-center gap-x-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
-                                    <svg class="h-1.5 w-1.5 fill-red-500" viewBox="0 0 6 6" aria-hidden="true">
-                                        <circle cx="3" cy="3" r="3"/>
-                                    </svg>
-                                    Hard
-                                </span>
+                            {% else %}
+                                {% if module.difficulty == "Medium" %}
+                                    <span class="inline-flex items-center gap-x-1.5 rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+                                        <svg class="h-1.5 w-1.5 fill-green-500" viewBox="0 0 6 6" aria-hidden="true">
+                                            <circle cx="3" cy="3" r="3"/>
+                                        </svg>
+                                        Medium
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-x-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+                                        <svg class="h-1.5 w-1.5 fill-red-500" viewBox="0 0 6 6" aria-hidden="true">
+                                            <circle cx="3" cy="3" r="3"/>
+                                        </svg>
+                                        Hard
+                                    </span>
+                                {% endif %}
                             {% endif %}
                         </td>
                         <td class="text-xs">{{ module.category }}</td>
@@ -356,7 +337,6 @@
         </table>
         {% endblock %}
 
-    </div>
 
     <div id="add-new-module-modal" tabindex="-1" aria-hidden="true"
          class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
