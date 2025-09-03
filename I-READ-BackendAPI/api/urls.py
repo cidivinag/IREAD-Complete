@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path
 from . import views
 from .views import get_category_progress
@@ -19,5 +21,7 @@ urlpatterns = [
   path('modules/<str:module_id>/answer', views.post_module_answers), #SUBMIT USER ANSWER FOR SPECIFIC MODULE
   path('assess/pronunciation', views.assess_pronunciation), #SUBMIT USER ANSWER FOR SPECIFIC MODULE
   path('get_category_progress/', get_category_progress, name='get_category_progress'),
-  
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
