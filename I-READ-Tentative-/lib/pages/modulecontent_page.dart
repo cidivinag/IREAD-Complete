@@ -138,7 +138,7 @@ class _ModuleContentPageState extends State<ModuleContentPage> {
                 ),
               ),
               content: Text(
-                'The quiz you\'re about to take is already completed. Answering it again won\'t earn you points, and all answers will be marked as mistakes. Do you want to continue?',
+                'The quiz you\'re about to take is already completed. Answering it again will overwrite your old score. Do you still want to continue?',
                 style: GoogleFonts.montserrat(color: const Color(0xFF8B4513)),
               ),
               actions: [

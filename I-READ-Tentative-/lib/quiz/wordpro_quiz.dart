@@ -1,20 +1,21 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:i_read_app/models/answer.dart';
+import 'package:i_read_app/models/module.dart';
+import 'package:i_read_app/models/question.dart';
+import 'package:i_read_app/services/api.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:i_read_app/services/storage.dart';
 
-    import 'dart:async';
-    import 'package:flutter/material.dart';
-    import 'package:speech_to_text/speech_to_text.dart' as stt;
-    import 'package:flutter_tts/flutter_tts.dart';
-    import 'package:google_fonts/google_fonts.dart';
-    import 'package:i_read_app/models/answer.dart';
-    import 'package:i_read_app/models/module.dart';
-    import 'package:i_read_app/models/question.dart';
-    import 'package:i_read_app/services/api.dart';
-    import 'package:permission_handler/permission_handler.dart';
-    import 'package:i_read_app/services/storage.dart';
-
-    import '../mainmenu/modules_menu.dart';
+import '../mainmenu/modules_menu.dart';
 import '../pages/modulecontent_page.dart';
+import 'breakdown_assessment.dart';
+import 'assessment_breakdown_dialog.dart';
 
-    class WordProQuiz extends StatefulWidget {
+class WordProQuiz extends StatefulWidget {
   final String moduleTitle;
   final List<String> uniqueIds;
   final String difficulty;
@@ -50,26 +51,6 @@ class _WordProQuizState extends State<WordProQuiz> {
   IconData feedbackIcon = Icons.help;
   Timer? _silenceTimer;
   Timer? _nextButtonTimer;
-
-    int _calculateAccuracy(String expected, String actual) {
-    if (expected.isEmpty || actual.isEmpty) return 0;
-    if (expected == actual) return 100;
-
-    expected = expected.toLowerCase().trim();
-    actual = actual.toLowerCase().trim();
-    
-    List<String> expectedWords = expected.split(' ');
-    List<String> actualWords = actual.split(' ');
-
-    int matched = 0;
-    for (int i = 0; i < expectedWords.length && i < actualWords.length; i++) {
-      if (expectedWords[i] == actualWords[i]) {
-        matched++;
-      }
-    }
-
-    return ((matched / expectedWords.length) * 100).round();
-  }
 
   void _onSpeechResult(dynamic result) {
     if (!mounted) return;
@@ -131,7 +112,9 @@ class _WordProQuizState extends State<WordProQuiz> {
     });
   }
 
-  void _processFinalResult(String recognizedText) {
+  bool _isAssessmentDialogOpen = false;
+
+  void _processFinalResult(String recognizedText) async {
     if (!mounted) return;
     
     if (recognizedText.isEmpty || recognizedText == 'Listening...') {
@@ -144,22 +127,15 @@ class _WordProQuizState extends State<WordProQuiz> {
     }
 
     final currentQuestion = questions[currentQuestionIndex];
-    final accuracy = _calculateAccuracy(currentQuestion.text, recognizedText);
-    final isCorrect = accuracy >= 80; // 80% accuracy threshold
+    final double accuracy = calculateAccuracy(currentQuestion.text, recognizedText);
+    final double completeness = calculateCompleteness(currentQuestion.text, recognizedText);
+    final bool isCorrect = accuracy >= 80; // 80% accuracy threshold
 
     setState(() {
       this.recognizedText = recognizedText;
       isListening = false;
       canProceedToNext = isCorrect;
       showNextButton = true;
-
-      if (isCorrect) {
-        feedbackMessage = 'Correct! ';
-        feedbackIcon = Icons.check_circle;
-      } else {
-        feedbackMessage = 'Almost! Try again.';
-        feedbackIcon = Icons.error;
-      }
 
       // Save the answer
       answers.add(Answer(
@@ -169,6 +145,25 @@ class _WordProQuizState extends State<WordProQuiz> {
       ));
     });
     debugPrint('Saved answer: ${currentQuestion.text} -> $recognizedText (Correct: $isCorrect, Accuracy: $accuracy%)');
+
+    if (_isAssessmentDialogOpen) return;
+    _isAssessmentDialogOpen = true;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AssessmentBreakdownDialog(
+        recognizedText: recognizedText,
+        accuracyScore: accuracy,
+        completenessScore: completeness,
+        onClose: () {
+          _isAssessmentDialogOpen = false;
+          setState(() {
+            showNextButton = true;
+          });
+        },
+      ),
+    );
+    _isAssessmentDialogOpen = false;
   }
 
   @override
