@@ -7,14 +7,32 @@ List<String> tokens(String text) {
 
 /// Very simple English stemmer
 String _getStem(String word) {
+  word = word.toLowerCase();
+  // Special cases for common root families
+  if (word.startsWith('beaut')) return 'beaut'; // beauty, beautiful, beautifully
+  if (word.startsWith('run')) return 'run'; // run, running, runner
+  if (word.startsWith('play')) return 'play'; // play, playing, player, playful
+  if (word.startsWith('stud')) return 'stud'; // study, studies, studying, studied
+  if (word.startsWith('happ')) return 'happ'; // happy, happiness, happily
+  if (word.startsWith('try')) return 'try'; // try, tries, tried, trying
+  if (word.startsWith('read')) return 'read'; // read, reading, reader
+  if (word.startsWith('sing')) return 'sing'; // sing, singing, singer
+  if (word.startsWith('teach')) return 'teach'; // teach, teacher, teaching
+  if (word.startsWith('write')) return 'write'; // write, writer, writing
+  if (word.startsWith('move')) return 'move'; // move, moving, movement
+  if (word.startsWith('act')) return 'act'; // act, acting, actor, action
+  // Add more as needed
   final suffixes = [
-    'ation', 'ment', 'ness', 'ing', 'edly', 'edly', 'edly', 'edly', 'edly', 'edly',
-    'edly', 'edly', 'ily', 'ied', 'ies', 'est', 'er', 'ed', 'es', 'ly', 's',
+    'ation', 'ment', 'ness', 'ing', 'edly', 'ily', 'ied', 'ies', 'est', 'er', 'ed', 'es', 'ly', 's',
   ];
   for (final suf in suffixes) {
     if (word.endsWith(suf) && word.length > suf.length + 2) {
       return word.substring(0, word.length - suf.length);
     }
+  }
+  // General rule: if word ends with 'y' after a consonant, remove 'y'
+  if (word.length > 3 && word.endsWith('y') && !'aeiou'.contains(word[word.length - 2])) {
+    return word.substring(0, word.length - 1);
   }
   return word;
 }
@@ -66,43 +84,66 @@ bool wordsAreSimilar(String a, String b, {double threshold = 0.6}) {
 double calculateAccuracy(String expected, String actual) {
   final ref = tokens(expected);
   final hyp = tokens(actual);
+
+  // Special handling for single-word case to avoid double-penalizing
+  if (ref.length == 1 && hyp.length == 1) {
+    String r = ref[0], h = hyp[0];
+    if (r == h) return 100.0;
+    double sim = wordSimilarity(r, h);
+    if (sim > 0.85) {
+      return double.parse((sim * 100).toStringAsFixed(1));
+    }
+    if (_getStem(r) == _getStem(h)) {
+      // Partial credit for stem match
+      return 75.0;
+    }
+    int minLen = r.length < h.length ? r.length : h.length;
+    int maxLen = r.length > h.length ? r.length : h.length;
+    if ((r.startsWith(h) || h.startsWith(r)) && (minLen / maxLen) >= 0.7) {
+      // Proportional partial credit for strong prefix
+      return double.parse(((minLen / maxLen) * 100).toStringAsFixed(1));
+    }
+    return 0.0;
+  }
+
   int i = 0, j = 0;
   double totalError = 0.0;
   while (i < ref.length && j < hyp.length) {
     if (ref[i] == hyp[j]) {
-      // Exact match
       i++;
       j++;
       continue;
     }
-    // Strict accuracy: only exact or highly similar matches get partial credit
     double sim = wordSimilarity(ref[i], hyp[j]);
     if (sim > 0.85) {
-      // Highly similar (almost exact)
       totalError += 1 - sim;
       i++;
       j++;
       continue;
     }
-    // Prefix or stem matches are NOT partial credit, count as substitution (full penalty)
-    if (_getStem(ref[i]) == _getStem(hyp[j]) || ref[i].startsWith(hyp[j]) || hyp[j].startsWith(ref[i])) {
-      totalError += 0.7; // treat as substitution
+    if (_getStem(ref[i]) == _getStem(hyp[j])) {
+      totalError += 0.25; // partial penalty for stem match
       i++;
       j++;
       continue;
     }
-    // Not similar: decide deletion/insertion/substitution
+    int minLen = ref[i].length < hyp[j].length ? ref[i].length : hyp[j].length;
+    int maxLen = ref[i].length > hyp[j].length ? ref[i].length : hyp[j].length;
+    if ((ref[i].startsWith(hyp[j]) || hyp[j].startsWith(ref[i])) && (minLen / maxLen) >= 0.7) {
+      totalError += 1 - (minLen / maxLen); // proportional penalty
+      i++;
+      j++;
+      continue;
+    }
     if (ref[i].length > hyp[j].length) {
-      totalError += 1.0; // treat as deletion (stricter)
+      totalError += 1.0;
       i++;
     } else {
-      totalError += 0.5; // treat as insertion (extra hyp word)
+      totalError += 0.5;
       j++;
     }
   }
-  // Leftover ref words (deletions)
   totalError += (ref.length - i) * 1.0;
-  // Leftover hyp words (insertions)
   totalError += (hyp.length - j) * 0.5;
   double wer = ref.isEmpty ? 1.0 : totalError / ref.length;
   double acc = ((1 - wer) * 100).clamp(0, 100);
